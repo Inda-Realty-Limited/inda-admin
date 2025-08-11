@@ -3,9 +3,10 @@
 // import { useState } from "react";
 
 export default function AdminInput() {
-  // type FieldValue = string | number | File | null;
   // const [submit, setSubmit] = useState<boolean>(false);
-  // const [formData, setFormData] = useState<Record<string, FieldValue>>({})
+  // const [formData, setFormData] = useState<FormData>({
+
+  // });
   // //   const [amenity, setAmenity] = useState("");
   // //   const [showUpload, setShowUpload] = useState(false);
 
@@ -125,11 +126,11 @@ export default function AdminInput() {
                 <div className="grid gap-x-5 grid-rows-1 grid-cols-2 max-lg:gap-x-15  max-md:gap-x-5">
                   <div className="row-start-1 row-end-2 col-start-1 col-end-2">
                     <label className="label">Bedrooms</label>
-                    <input className="input lg:w-33 max-lg:w-60 max-md:w-30" />
+                    <input className="input lg:w-33 max-lg:w-60 max-md:w-45" />
                   </div>
                   <div className="row-start-1 row-end-2 col-start-2 col-end-3">
                     <label className="label">Bathrooms</label>
-                    <input className="input lg:w-33 max-lg:w-60 max-md:w-30" />
+                    <input className="input lg:w-33 max-lg:w-60 max-md:w-45" />
                   </div>
                 </div>
               </div>
@@ -160,44 +161,43 @@ export default function AdminInput() {
                 <label className="label">Year First Sold</label>
                 <input className="input w-full" />
               </div>
-              <div className="row-start-2 row-end-3 col-start-2 col-end-3 max-lg:row-start-2 max-lg:row-end-3 max-lg:col-start-2 max-lg:col-end-3 max-md:row-start-2 max-md:row-end-3 max-md:col-start-1 max-md:col-end-2">
+              <div className="row-start-2 row-end-3 col-start-4 col-end-5 max-lg:row-start-2 max-lg:row-end-3 max-lg:col-start-2 max-lg:col-end-3 max-md:row-start-3 max-md:row-end-4 max-md:col-start-1 max-md:col-end-2">
                 <label className="label">Historical Rent</label>
                 <input className="input w-full" />
               </div>
-              <div className="row-start-1 row-end-2 col-start-3 col-end-4 max-lg:row-start-1 max-lg:row-end-2 max-lg:col-start-3 max-lg:col-end-4 max-md:row-start-2 max-md:row-end-3 max-md:col-start-2 max-md:col-end-3">
+              <div className="row-start-1 row-end-2 col-start-3 col-end-4 max-lg:row-start-1 max-lg:row-end-2 max-lg:col-start-3 max-lg:col-end-4 max-md:row-start-2 max-md:row-end-3 max-md:col-start-1 max-md:col-end-2">
                 <label className="label">Listing Price (#)</label>
                 <input className="input w-full" />
               </div>
-              <div className="row-start-2 row-end-3 col-start-3 col-end-4 max-lg:row-start-2 max-lg:row-end-3 max-lg:col-start-3 max-lg:col-end-4 max-md:row-start-3 max-md:row-end-4 max-md:col-start-1 max-md:col-end-2">
+              <div className="row-start-2 row-end-3 col-start-3 col-end-4 max-lg:row-start-2 max-lg:row-end-3 max-lg:col-start-3 max-lg:col-end-4 max-md:row-start-3 max-md:row-end-4 max-md:col-start-2 max-md:col-end-3">
                 <label className="label">Vacancy Rate</label>
                 <input className="input w-full" />
               </div>
-              <div className="row-start-1 row-end-2 col-start-4 col-end-5 max-lg:row-start-2 max-lg:row-end-3 max-lg:col-start-1 max-lg:col-end-2 max-md:row-start-3 max-md:row-end-4 max-md:col-start-2 max-md:col-end-3">
+              <div className="row-start-1 row-end-2 col-start-4 col-end-5 max-lg:row-start-2 max-lg:row-end-3 max-lg:col-start-1 max-lg:col-end-2 max-md:row-start-2 max-md:row-end-3 max-md:col-start-2 max-md:col-end-3">
                 <label className="label">Historical Sale Prices</label>
                 <input className="input w-full" />
               </div>
-              <div className="max-lg:flex max-lg:gap-x-10  max-lg:row-start-3 max-lg:row-end-4 max-lg:col-start-1 max-lg:col-end-4 max-md:row-start-4 max-md:row-end-5 max-md:col-start-1 max-md:col-end-3">
-                <div className="row-start-2 row-end-3 col-start-1 col-end-2 max-lg:w-1/2">
-                  <label className="label max-lg:text-xs">
-                    Current Rent (Monthly)
-                  </label>
-                  <input className="input w-full" />
-                </div>
-                <div className="row-start-2 row-end-3 col-start-4 col-end-5 max-lg:w-1/2 ">
-                  <label className="label max-lg:text-xs">
-                    Annual Maintenance Cost
-                  </label>
-                  <input className="input w-full" />
-                </div>
+
+              <div className="row-start-2 row-end-3 col-start-1 col-end-2 max-lg:row-start-3 max-lg:row-end-4 max-lg:col-start-1 max-lg:col-end-2 max-md:row-start-4 max-md:row-end-5 max-md:col-start-1 max-md:col-end-2">
+                <label className="label max-lg:text-xs">
+                  Current Rent (Monthly)
+                </label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-2 row-end-3 col-start-2 col-end-3 max-lg:row-start-3 max-lg:row-end-4 max-lg:col-start-2 max-lg:col-end-3 max-md:row-start-4 max-md:row-end-5 max-md:col-start-2 max-md:col-end-3">
+                <label className="label max-lg:text-xs">
+                  Annual Maintenance Cost
+                </label>
+                <input className="input w-full" />
               </div>
             </div>
           </div>
         </div>
-        <div className="mt-20">
+        <div className="mt-20 max-lg:text-center">
           <h1 className="mb-5 text-[#4EA8A1] text-3xl font-bold">Uploads</h1>
           <div className="flex flex-wrap gap-x-10 gap-y-10">
-            <div>
-              <h2 className="text-center font-semibold mb-3">
+            <div className="max-lg:mx-auto max-lg:my-0">
+              <h2 className="text-center font-semibold mb-3 max-md:w-75">
                 Title Documents
               </h2>
               <label htmlFor="fileInput" className="uploads">
@@ -214,7 +214,7 @@ export default function AdminInput() {
               />
             </div>
 
-            <div>
+            <div className="max-lg:mx-auto max-lg:my-0">
               <h2 className="text-center font-semibold mb-3 max-md:w-75">
                 Upload Litigation Documents
               </h2>
@@ -234,21 +234,21 @@ export default function AdminInput() {
           </div>
           <div>
             <h2 className="my-5 font-semibold">Property Images</h2>
-            <div className="flex flex-wrap gap-y-10">
-              <span className="w-1/3 max-xl:w-1/2 max-lg:w-full">
+            <div className="flex flex-wrap max-lg:ml-0 gap-y-10">
+              <span className="w-1/3 max-xl:w-1/2">
                 <label className="property">
                   <span className="text-[#4EA8A1]">Click to upload image</span>
                 </label>
 
                 <input className="hidden" type="file" accept=".jpg, .png" />
               </span>
-              <span className="w-1/3 max-xl:w-1/2 max-lg:w-full">
+              <span className="w-1/3 max-xl:w-1/2">
                 <label className="property">
                   <span className="text-[#4EA8A1]">Click to upload image</span>
                 </label>
                 <input className="hidden" type="file" accept=".jpg, .png" />
               </span>
-              <span className="w-1/3 max-xl:w-1/2 max-lg:w-full">
+              <span className="w-1/3 max-xl:w-1/2">
                 <label className="property">
                   <span className="text-[#4EA8A1]">Click to upload image</span>
                 </label>
@@ -259,7 +259,7 @@ export default function AdminInput() {
           <div>
             <h2 className="my-5 font-semibold">Amenities</h2>
             <div className="flex flex-wrap gap-x-10 gap-y-10">
-              <span>
+              <span className="max-lg:mx-auto max-lg:my-0">
                 <label className="amenities">
                   <span className="text-[#4EA8A1]">Click to upload image</span>
                 </label>
@@ -267,7 +267,7 @@ export default function AdminInput() {
                 <input className="hidden" type="file" accept=" .jpg, .png" />
                 <h3 className="text-center font-md">Security</h3>
               </span>
-              <span>
+              <span className="max-lg:mx-auto max-lg:my-0">
                 <label className="amenities">
                   <span className="text-[#4EA8A1]">Click to upload image</span>
                 </label>
