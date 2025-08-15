@@ -1,3 +1,25 @@
+const financialMetricsFields = [
+  { label: "Inflation-Adjusted Price", row: 1, col: 1 },
+  { label: "Annualized Price Growth (1%)", row: 1, col: 2 },
+  { label: "Annual Gross Rent", row: 2, col: 1 },
+  { label: "Rental Appreciation Rate", row: 2, col: 2 },
+  { label: "Total Purchase Cost", row: 3, col: 1 },
+  { label: "Capital Gains Estimate", row: 3, col: 2 },
+  { label: "ROI (%)", row: 4, col: 1 },
+  { label: "Annualized ROI (%)", row: 4, col: 2 },
+  { label: "Expected 5-Year Sale Price", row: 5, col: 1 },
+  { label: "Rental Yield", row: 5, col: 2 },
+];
+
+const riskAssessmentFields = [
+  { label: "Net Yield", row: 1, col: 1 },
+  { label: "Mortgage Monthly Payment", row: 1, col: 2 },
+  { label: "RICS-Style Fair Market Value", row: 2, col: 1 },
+  { label: "Market Liquidity Risk Score", row: 2, col: 2 },
+  { label: "Developer Risk Level", row: 3, col: 1 },
+  { label: "Legal Risk Score", row: 3, col: 2 },
+];
+
 export default function autoCalculated() {
   return (
     <div className="mt-10">
@@ -6,46 +28,17 @@ export default function autoCalculated() {
           Finacial Metrics
         </h1>
         <div className="grid grid-rows-5 grid-cols-2 gap-x-50 gap-y-10 max-lg:gap-x-30 max-md:gap-x-15">
-          <div className="row-start-1 row-end-2 col-start-1 col-end-2">
-            <label className="label">Inflation-Adjusted Price</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-1 row-end-2 col-start-2 col-end-3">
-            <label className="label">Annualized Price Growth (1%)</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-2 row-end-3 col-start-1 col-end-2">
-            <label className="label">Annual Gross Rent</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-2 row-end-3 col-start-2 col-end-3">
-            <label className="label">Rental Appreciation Rate</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-3 row-end-4 col-start-1 col-end-2">
-            <label className="label">Total Purchase Cost</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-3 row-end-4 col-start-2 col-end-3">
-            <label className="label">Capital Gains Estimate</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-4 row-end-5 col-start-1 col-end-2">
-            <label className="label">ROI (%)</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-4 row-end-5 col-start-2 col-end-3">
-            <label className="label">Annualized ROI (%)</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-5 row-end-6 col-start-1 col-end-2">
-            <label className="label">Expected 5-Year Sale Price</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-5 row-end-6 col-start-2 col-end-3">
-            <label className="label">Rental Yield</label>
-            <input className="input w-full" />
-          </div>
+          {financialMetricsFields.map((field) => (
+            <div
+              key={field.label}
+              className={`row-start-${field.row} row-end-${
+                field.row + 1
+              } col-start-${field.col} col-end-${field.col + 1}`}
+            >
+              <label className="label">{field.label}</label>
+              <input className="input w-full" />
+            </div>
+          ))}
         </div>
       </div>
       <div className="border-solid border-1 border-[#E5E5E5] rounded-4xl p-10">
@@ -53,30 +46,17 @@ export default function autoCalculated() {
           Risk Assessment
         </h1>
         <div className="grid grid-rows-3 grid-cols-2 gap-x-50 gap-y-10 max-lg:gap-x-30 max-md:gap-x-15">
-          <div className="row-start-1 row-end-2 col-start-1 col-end-2">
-            <label className="label">Net Yield</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-1 row-end-2 col-start-2 col-end-3">
-            <label className="label">Mortgage Monthly Payment</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-2 row-end-3 col-start-1 col-end-2">
-            <label className="label">RICS-Style Fair Market Value</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-2 row-end-3 col-start-2 col-end-3">
-            <label className="label">Market Liquidity Risk Score</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-3 row-end-4 col-start-1 col-end-2">
-            <label className="label">Developer Risk Level</label>
-            <input className="input w-full" />
-          </div>
-          <div className="row-start-3 row-end-4 col-start-2 col-end-3">
-            <label className="label">Legal Risk Score</label>
-            <input className="input w-full" />
-          </div>
+          {riskAssessmentFields.map((field) => (
+            <div
+              key={field.label}
+              className={`row-start-${field.row} row-end-${
+                field.row + 1
+              } col-start-${field.col} col-end-${field.col + 1}`}
+            >
+              <label className="label">{field.label}</label>
+              <input className="input w-full" />
+            </div>
+          ))}
         </div>
       </div>
       <div>
