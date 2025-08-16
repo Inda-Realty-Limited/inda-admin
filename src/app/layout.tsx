@@ -14,8 +14,12 @@ const navLinks = [
     href: "/autoCalculated",
     heading: "Auto Calculated Fields",
   },
-  { name: "AI Summaries", href: "/*", heading: "AI Summaries and Prompts" },
-  { name: "Reviews", href: "/#", heading: "Reviews" },
+  {
+    name: "AI Summaries",
+    href: "/aiSummaries",
+    heading: "AI Summaries and Prompts",
+  },
+  { name: "Reviews", href: "/reviews", heading: "Reviews" },
 ];
 
 export default function RootLayout({

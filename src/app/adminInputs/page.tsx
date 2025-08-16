@@ -2,6 +2,51 @@
 
 // import { useState } from "react";
 
+const broadInputFields = [
+  { label: "Property ID", row: 1, col: 1 },
+  { label: "Listing Platform URL", row: 1, col: 2 },
+  { label: "Agent Name", row: 2, col: 1 },
+  { label: "Contact Info on Listing (Phone)", row: 2, col: 2 },
+  { label: "Agent Claimed? (Y/N)", row: 3, col: 1 },
+  { label: "Developer Project", row: 3, col: 2 },
+  { label: "Title/Property Name", row: 4, col: 1 },
+  { label: "Listing Scraped/Uploaded Date", row: 4, col: 2 },
+  { label: "Full Address", row: 5, col: 1, colSpan: 2 },
+  { label: "State", row: 6, col: 1 },
+  { label: "LGA", row: 6, col: 2 },
+  { label: "Microlocation", row: 7, col: 1 },
+  { label: "Property Type", row: 7, col: 2 },
+];
+
+// const narrowInputFields = [
+//   { label: "Number of Units", row: 6, col: 1 },
+//   { label: "Size (sqm)", row: 6, col: 1 },
+//   { label: "State", row: 6, col: 1 },
+//   { label: "Developer Name", row: 6, col: 1 },
+//   { label: "Project Status", row: 6, col: 1 },
+//   { label: "Delivery Timeline", row: 6, col: 1 },
+//   { label: "Property tax", row: 6, col: 1 },
+//   { label: "Source of Listing", row: 6, col: 1 },
+//   { label: "Listing Verified?", row: 6, col: 1 },
+//   { label: "Document Verified?", row: 6, col: 1 },
+//   { label: "Zoning", row: 6, col: 1 },
+//   { label: "Source of Historical Data", row: 6, col: 1 },
+//   { label: "Property tax", row: 6, col: 1 },
+//   { label: "Any Government Acquisition ID", row: 6, col: 1 },
+//   { label: "Mortgage Options", row: 6, col: 1 },
+// ];
+
+// const historyField = [
+//   { label: "Year Built", row: 1, col: 1 },
+//   { label: "Year First Sold", row: 1, col: 2 },
+//   { label: "Listing Price (#)", row: 1, col: 3 },
+//   { label: "Historical Sale Prices", row: 1, col: 4 },
+//   { label: "Current Rent (Monthly)", row: 2, col: 1 },
+//   { label: "Annual Maintenance Cost", row: 2, col: 2 },
+//   { label: "Vacancy Rate", row: 2, col: 3 },
+//   { label: "Historical Rent", row: 2, col: 4 },
+// ];
+
 export default function AdminInput() {
   // const [submit, setSubmit] = useState<boolean>(false);
   // const [formData, setFormData] = useState<FormData>({
@@ -28,58 +73,21 @@ export default function AdminInput() {
         <div>
           <div>
             <div className="grid gap-x-50 grid-rows-7 grid-cols-2 gap-y-6 mb-8 max-2xl:gap-x-40 max-xl:gap-x-30 max-lg:gap-x-20">
-              <div className="row-start-1 row-end-2 col-start-1 col-end-2">
-                <label className="label">Property ID</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-2 row-end-3 col-start-1 col-end-2">
-                <label className="label">Agent Name</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-3 row-end-4 col-start-1 col-end-2">
-                <label className="label">Agent Claimed? (Y/N)</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-4 row-end-5 col-start-1 col-end-2">
-                <label className="label">Title/Property Name</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-5 row-end-6 col-start-1 col-end-3">
-                <label className="label">Full Address</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-6 row-end-7 col-start-1 col-end-2">
-                <label className="label">State</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-7 row-end-8 col-start-1 col-end-2">
-                <label className="label">Microlocation</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-1 row-end-2 col-start-2 col-end-3">
-                <label className="label">Listing Platform URL</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-2 row-end-3 col-start-2 col-end-3">
-                <label className="label">Contact Info on Listing (Phone)</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-3 row-end-4 col-start-2 col-end-3">
-                <label className="label">Developer Project</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-4 row-end-5 col-start-2 col-end-3">
-                <label className="label">Listing Scraped/Uploaded Date</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-6 row-end-7 col-start-2 col-end-3">
-                <label className="label">LGA</label>
-                <input className="input w-full" />
-              </div>
-              <div className="row-start-7 row-end-8 col-start-2 col-end-3">
-                <label className="label">Property Type</label>
-                <input className="input w-full" />
-              </div>
+              {broadInputFields.map((broad) => {
+                return (
+                  <div
+                    key={broad.label}
+                    className={`row-start-${broad.row} row-end-${
+                      broad.row + 1
+                    } col-start-${broad.col} col-end-[${
+                      broad.col + 1
+                    } col-span-${broad.colSpan}`}
+                  >
+                    <label className="label">{broad.label}</label>
+                    <input className="input w-full" />
+                  </div>
+                );
+              })}
             </div>
             <div className="grid gap-x-20 gap-y-6 grid-rows-5 grid-cols-3 mb-8 max-xl:gap-x-10 max-lg:grid-rows-8 max-lg:grid-cols-2 max-lg:gap-x-20 max-lg:gap-y-6">
               <div className="row-start-1 row-end-2 col-start-1 col-end-2 max-lg:row-start-1 max-lg:row-end-2 max-lg:col-start-1  max-lg:col-end-2">
@@ -306,4 +314,59 @@ export default function AdminInput() {
       </form>
     </div>
   );
+}
+
+{
+  /* <div className="row-start-1 row-end-2 col-start-1 col-end-2">
+                <label className="label">Property ID</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-2 row-end-3 col-start-1 col-end-2">
+                <label className="label">Agent Name</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-3 row-end-4 col-start-1 col-end-2">
+                <label className="label">Agent Claimed? (Y/N)</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-4 row-end-5 col-start-1 col-end-2">
+                <label className="label">Title/Property Name</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-5 row-end-6 col-start-1 col-end-3">
+                <label className="label">Full Address</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-6 row-end-7 col-start-1 col-end-2">
+                <label className="label">State</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-7 row-end-8 col-start-1 col-end-2">
+                <label className="label">Microlocation</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-1 row-end-2 col-start-2 col-end-3">
+                <label className="label">Listing Platform URL</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-2 row-end-3 col-start-2 col-end-3">
+                <label className="label">Contact Info on Listing (Phone)</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-3 row-end-4 col-start-2 col-end-3">
+                <label className="label">Developer Project</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-4 row-end-5 col-start-2 col-end-3">
+                <label className="label">Listing Scraped/Uploaded Date</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-6 row-end-7 col-start-2 col-end-3">
+                <label className="label">LGA</label>
+                <input className="input w-full" />
+              </div>
+              <div className="row-start-7 row-end-8 col-start-2 col-end-3">
+                <label className="label">Property Type</label>
+                <input className="input w-full" />
+              </div> */
 }

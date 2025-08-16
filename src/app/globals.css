@@ -15,6 +15,9 @@
 .amenities {
   @apply bg-[#E5E5E5] inline-block px-20 py-25 border-none rounded-2xl text-center cursor-pointer w-90 mr-10 max-md:w-70 max-lg:w-90 max-lg:px-15;
 }
+.textarea {
+  @apply w-full h-40 max-md:h-30 border-solid border-1 border-[#E5E5E5] rounded-xl;
+}
 
 /* :root {
   --i-green: #4ea8a1;
