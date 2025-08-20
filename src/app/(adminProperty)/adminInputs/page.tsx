@@ -1,5 +1,8 @@
-// "use client";
+"use client";
+import { useForm } from "react-hook-form";
+import { DevTool } from "@hookform/devtools";
 import { GoUpload } from "react-icons/go";
+import { useEffect } from "react";
 
 // import { useState } from "react";
 
@@ -48,7 +51,16 @@ const broadInputFields = [
 //   { label: "Historical Rent", row: 2, col: 4 },
 // ];
 
+type FormValue = {
+  [key: string]: string | number | boolean | File | undefined;
+};
+
 export default function AdminInput() {
+  const form = useForm<FormValue>();
+  const { register, control, handleSubmit, formState, reset } = form;
+  const { errors, isDirty, isValid, isSubmitting, isSubmitSuccessful } =
+    formState;
+
   // const [submit, setSubmit] = useState<boolean>(false);
   // const [formData, setFormData] = useState<FormData>({
 
@@ -68,9 +80,19 @@ export default function AdminInput() {
   //   setFormData{}
   // }
 
+  function giveOut(data: FormValue) {
+    console.log("Form Submitted", data);
+  }
+
+  useEffect(() => {
+    if (isSubmitSuccessful) {
+      reset();
+    }
+  }, [isSubmitSuccessful, reset]);
+
   return (
     <div className="mt-7">
-      <form>
+      <form onSubmit={handleSubmit(giveOut)} noValidate>
         <div>
           <div>
             <div className="grid gap-x-50 grid-rows-7 grid-cols-2 gap-y-6 mb-8 max-2xl:gap-x-40 max-xl:gap-x-30 max-lg:gap-x-20">
@@ -85,87 +107,224 @@ export default function AdminInput() {
                     } col-span-${broad.colSpan}`}
                   >
                     <label className="label">{broad.label}</label>
-                    <input className="input w-full" />
+                    <input
+                      className="input w-full"
+                      id={broad.label}
+                      {...(register(broad.label),
+                      { required: `${broad.label} is required` })}
+                    />
                   </div>
                 );
               })}
             </div>
+
             <div className="grid gap-x-20 gap-y-6 grid-rows-5 grid-cols-3 mb-8 max-xl:gap-x-10 max-lg:grid-rows-8 max-lg:grid-cols-2 max-lg:gap-x-20 max-lg:gap-y-6">
               <div className="row-start-1 row-end-2 col-start-1 col-end-2 max-lg:row-start-1 max-lg:row-end-2 max-lg:col-start-1  max-lg:col-end-2">
-                <label className="label">Number of Units</label>
-                <input className="input w-full" />
+                <label htmlFor="unit" className="label">
+                  Number of Units
+                </label>
+                <input
+                  id="unit"
+                  type="number"
+                  {...register("unit", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
+                <p>{errors.unit?.message}</p>
               </div>
               <div className="row-start-2 row-end-3 col-start-1 col-end-2 max-lg:row-start-3 max-lg:row-end-4 max-lg:col-start-1  max-lg:col-end-2">
-                <label className="label">Developer Name</label>
-                <input className="input w-full" />
+                <label htmlFor="developer-name" className="label">
+                  Developer Name
+                </label>
+                <input
+                  id="developer-name"
+                  type="text"
+                  {...register("developer-name", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-3 row-end-4 col-start-1 col-end-2 max-lg:row-start-4 max-lg:row-end-5 max-lg:col-start-2  max-lg:col-end-3">
-                <label className="label">Property tax</label>
-                <input className="input w-full" />
+                <label htmlFor="property-tax" className="label">
+                  Property tax
+                </label>
+                <input
+                  id="property-tax"
+                  {...register("property-tax", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-4 row-end-5 col-start-1 col-end-2 max-lg:row-start-6 max-lg:row-end-7 max-lg:col-start-1  max-lg:col-end-2">
-                <label className="label">Document Verified?</label>
-                <input className="input w-full" />
+                <label htmlFor="verified-document" className="label">
+                  Document Verified?
+                </label>
+                <input
+                  id="verified-document"
+                  {...register("verified-document", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-5 row-end-6 col-start-1 col-end-2 max-lg:row-start-7 max-lg:row-end-8 max-lg:col-start-2  max-lg:col-end-3">
-                <label className="label">Property tax</label>
-                <input className="input w-full" />
+                <label htmlFor="property-tax1" className="label">
+                  Property tax
+                </label>
+                <input
+                  id="property-tax1"
+                  {...register("property-tax1", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-1 row-end-2 col-start-2 col-end-3 max-lg:row-start-1 max-lg:row-end-2 max-lg:col-start-2  max-lg:col-end-3">
-                <label className="label">Size (sqm)</label>
-                <input className="input w-full" />
+                <label htmlFor="size" className="label">
+                  Size (sqm)
+                </label>
+                <input
+                  id="size"
+                  {...register("size", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-2 row-end-3 col-start-2 col-end-3 max-lg:row-start-3 max-lg:row-end-4 max-lg:col-start-2  max-lg:col-end-3">
-                <label className="label">Project Status</label>
-                <input className="input w-full" />
+                <label htmlFor="project-status" className="label">
+                  Project Status
+                </label>
+                <input
+                  id="project-status"
+                  {...register("project-status", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-3 row-end-4 col-start-2 col-end-3 max-lg:row-start-5 max-lg:row-end-6 max-lg:col-start-1  max-lg:col-end-2">
-                <label className="label">Source of Listing</label>
-                <input className="input w-full" />
+                <label htmlFor="listing-source" className="label">
+                  Source of Listing
+                </label>
+                <input
+                  id="listing-source"
+                  {...register("listing-source", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-4 row-end-5 col-start-2 col-end-3 max-lg:row-start-6 max-lg:row-end-7 max-lg:col-start-2  max-lg:col-end-3">
-                <label className="label">Zoning</label>
-                <input className="input w-full" />
+                <label htmlFor="zoning" className="label">
+                  Zoning
+                </label>
+                <input
+                  id="zoning"
+                  {...register("zoning", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-5 row-end-6 col-start-2 col-end-3 max-lg:row-start-8 max-lg:row-end-9 max-lg:col-start-1  max-lg:col-end-2">
-                <label className="label">Any Government Acquisition ID</label>
-                <input className="input w-full" />
+                <label htmlFor="acquisition-id" className="label">
+                  Any Government Acquisition ID
+                </label>
+                <input
+                  id="acquisition-id"
+                  {...register("acquisition-id", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-1 row-end-2 col-start-3 col-end-4 max-lg:row-start-2 max-lg:row-end-3 max-lg:col-start-1 max-lg:col-end-3">
                 <div className="grid gap-x-5 grid-rows-1 grid-cols-2 max-lg:gap-x-15  max-md:gap-x-5">
                   <div className="row-start-1 row-end-2 col-start-1 col-end-2">
-                    <label className="label">Bedrooms</label>
-                    <input className="input lg:w-33 max-lg:w-60 max-md:w-45" />
+                    <label htmlFor="bedrooms" className="label">
+                      Bedrooms
+                    </label>
+                    <input
+                      id="bedrooms"
+                      {...register("bedrooms", {
+                        required: "This field is required",
+                      })}
+                      className="input lg:w-33 max-lg:w-60 max-md:w-45"
+                    />
                   </div>
                   <div className="row-start-1 row-end-2 col-start-2 col-end-3">
-                    <label className="label">Bathrooms</label>
-                    <input className="input lg:w-33 max-lg:w-60 max-md:w-45" />
+                    <label htmlFor="bathrooms" className="label">
+                      Bathrooms
+                    </label>
+                    <input
+                      id="bathrooms"
+                      {...register("bathrooms", {
+                        required: "This field is required",
+                      })}
+                      className="input lg:w-33 max-lg:w-60 max-md:w-45"
+                    />
                   </div>
                 </div>
               </div>
               <div className="row-start-2 row-end-3 col-start-3 col-end-4 max-lg:row-start-4 max-lg:row-end-5 max-lg:col-start-1  max-lg:col-end-2">
-                <label className="label">Delivery Timeline</label>
-                <input className="input  w-full" />
+                <label htmlFor="delivery-timeline" className="label">
+                  Delivery Timeline
+                </label>
+                <input
+                  id="delivery-timeline"
+                  {...register("delivery-timeline", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-3 row-end-4 col-start-3 col-end-4 max-lg:row-start-5 max-lg:row-end-6 max-lg:col-start-2  max-lg:col-end-3">
-                <label className="label">Listing Verified?</label>
-                <input className="input w-full" />
+                <label htmlFor="verified-listing" className="label">
+                  Listing Verified?
+                </label>
+                <input
+                  id="verified-listing"
+                  {...register("verified-listing", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-4 row-end-5 col-start-3 col-end-4 max-lg:row-start-7 max-lg:row-end-8 max-lg:col-start-1  max-lg:col-end-2">
-                <label className="label">Source of Historical Data</label>
-                <input className="input w-full" />
+                <label htmlFor="historical-data-source" className="label">
+                  Source of Historical Data
+                </label>
+                <input
+                  id="historical-data-source"
+                  {...register("historical-data-source", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
               <div className="row-start-5 row-end-6 col-start-3 col-end-4 max-lg:row-start-8 max-lg:row-end-9 max-lg:col-start-2  max-lg:col-end-3">
-                <label className="label">Mortgage Options</label>
-                <input className="input w-full" />
+                <label htmlFor="mortgage-options" className="label">
+                  Mortgage Options
+                </label>
+                <input
+                  id="mortgage-options"
+                  {...register("mortgage-options", {
+                    required: "This field is required",
+                  })}
+                  className="input w-full"
+                />
               </div>
             </div>
+
             <div className="grid gap-x-10 gap-y-6 grid-rows-2 grid-cols-4 mb-8 max-lg:grid-rows-3 max-lg:grid-cols-3 max-md:grid-rows-4 max-md:grid-cols-2">
               <div className="row-start-1 row-end-2 col-start-1 col-end-2 max-lg:row-start-1 max-lg:row-end-2 max-lg:col-start-1 max-lg:col-end-2 max-md:row-start-1 max-md:row-end-2 max-md:col-start-1 max-md:col-end-2">
                 <label className="label">Year Built</label>
                 <input className="input w-full" />
               </div>
-
               <div className="row-start-1 row-end-2 col-start-2 col-end-3 max-lg:row-start-1 max-lg:row-end-2 max-lg:col-start-2 max-lg:col-end-3 max-md:row-start-1 max-md:row-end-2 max-md:col-start-2 max-md:col-end-3">
                 <label className="label">Year First Sold</label>
                 <input className="input w-full" />
@@ -312,14 +471,23 @@ export default function AdminInput() {
           </div>
         </div>
         <div className="mt-10 text-right max-lg:text-center">
-          <button className="bg-[#E5E5E5] rounded-full w-40 px-10 py-5 mr-5 max-md:w-30 max-md:py-3 font-semibold">
+          <button
+            type="button"
+            onClick={() => reset()}
+            className="bg-[#E5E5E5] rounded-full w-40 px-10 py-5 mr-5 max-md:w-30 max-md:py-3 font-semibold"
+          >
             Cancel
           </button>
-          <button className="bg-[#4EA8A1] text-[#F9F9F9] rounded-full w-60 px-10 py-5 max-md:w-50 max-md:py-3 font-semibold">
+          <button
+            type="button"
+            disabled={!isDirty || isValid || isSubmitting}
+            className="bg-[#4EA8A1] text-[#F9F9F9] cursor-pointer rounded-full w-60 px-10 py-5 max-md:w-50 max-md:py-3 font-semibold"
+          >
             Save & Continue
           </button>
         </div>
       </form>
+      <DevTool control={control} />
     </div>
   );
 }
