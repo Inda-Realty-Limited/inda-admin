@@ -1,4 +1,5 @@
 // "use client";
+import { GoUpload } from "react-icons/go";
 
 // import { useState } from "react";
 
@@ -209,6 +210,7 @@ export default function AdminInput() {
                 Title Documents
               </h2>
               <label htmlFor="fileInput" className="uploads">
+                <GoUpload size={35} className="mx-auto my-0" />
                 <span className="text-[#4EA8A1]">Click to upload</span> or drag
                 and drop
                 <br />
@@ -227,6 +229,7 @@ export default function AdminInput() {
                 Upload Litigation Documents
               </h2>
               <label htmlFor="fileInput" className="uploads">
+                <GoUpload size={35} className="mx-auto my-0" />
                 <span className="text-[#4EA8A1]">Click to upload</span> drag and
                 drop
                 <br />
@@ -245,6 +248,7 @@ export default function AdminInput() {
             <div className="flex flex-wrap max-lg:ml-0 gap-y-10">
               <span className="w-1/3 max-xl:w-1/2">
                 <label className="property">
+                  <GoUpload size={35} className="mx-auto my-0" />
                   <span className="text-[#4EA8A1]">Click to upload image</span>
                 </label>
 
@@ -252,12 +256,14 @@ export default function AdminInput() {
               </span>
               <span className="w-1/3 max-xl:w-1/2">
                 <label className="property">
+                  <GoUpload size={35} className="mx-auto my-0" />
                   <span className="text-[#4EA8A1]">Click to upload image</span>
                 </label>
                 <input className="hidden" type="file" accept=".jpg, .png" />
               </span>
               <span className="w-1/3 max-xl:w-1/2">
                 <label className="property">
+                  <GoUpload size={35} className="mx-auto my-0" />
                   <span className="text-[#4EA8A1]">Click to upload image</span>
                 </label>
                 <input className="hidden" type="file" accept=".jpg, .png" />
@@ -269,6 +275,7 @@ export default function AdminInput() {
             <div className="flex flex-wrap gap-x-10 gap-y-10">
               <span className="max-lg:mx-auto max-lg:my-0">
                 <label className="amenities">
+                  <GoUpload size={35} className="mx-auto my-0" />
                   <span className="text-[#4EA8A1]">Click to upload image</span>
                 </label>
 
@@ -277,6 +284,7 @@ export default function AdminInput() {
               </span>
               <span className="max-lg:mx-auto max-lg:my-0">
                 <label className="amenities">
+                  <GoUpload size={35} className="mx-auto my-0" />
                   <span className="text-[#4EA8A1]">Click to upload image</span>
                 </label>
 

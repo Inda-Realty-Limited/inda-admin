@@ -1,3 +1,8 @@
+import { FaStar } from "react-icons/fa";
+import { BiSolidHide } from "react-icons/bi";
+import { FaFlag } from "react-icons/fa6";
+import { IoStatsChart } from "react-icons/io5";
+
 export default function reviews() {
   const links = [
     {
@@ -57,17 +62,18 @@ export default function reviews() {
         })}
       </nav>
       <div>
-        <div className="grid grid-cols-7 gap-x-10 w-full mb-5 text-xl text-[#101820] font-semibold">
+        <div className="grid grid-cols-9 gap-x-10 w-full mb-5 text-xl text-[#101820] font-semibold">
           <div className="col-span-2">USER</div>
           <div className="col-span-1">DATE</div>
           <div className="col-span-1">RATING</div>
           <div className="col-span-3">COMMENT</div>
+          <div className="col-span-2 text-center">ACTIONS</div>
         </div>
         {userInfo.map((info) => {
           return (
             <div
               key={info.rating}
-              className="grid  grid-cols-7 gap-x-10 w-full mb-10"
+              className="grid  grid-cols-9 gap-x-10 w-full mb-10"
             >
               <div className="border-solid border-1 border-[#4ea8a1] p-3 rounded-lg col-span-2">
                 {info.name}
@@ -75,11 +81,32 @@ export default function reviews() {
               <div className="border-solid border-1 border-[#4ea8a1] p-3 rounded-lg col-span-1">
                 {info.date}
               </div>
-              <div className="border-solid border-1 border-[#4ea8a1] p-3 rounded-lg col-span-1">
+              <div className="text-center border-solid border-1 border-[#4ea8a1] p-3 rounded-lg col-span-1">
+                <FaStar
+                  size={20}
+                  className="text-[#EBEA98] inline-block mb-1 mr-3"
+                />
                 {info.rating}
               </div>
-              <div className="border-solid border-1 border-[#4ea8a1] p-3 rounded-lg col-span-3">
+              <div className="text-[#E5E5E5] border-solid border-1 border-[#4ea8a1] px-3 pt-3 rounded-lg col-span-3">
                 {info.comment}
+              </div>
+              <div className=" p-3 col-span-2 flex items-center justify-between">
+                <BiSolidHide
+                  size={40}
+                  className="text-[#4ea8a1] inline-block"
+                />
+                <FaFlag size={30} className="inline-block text-[#4ea8a1]" />
+                <span>
+                  <IoStatsChart
+                    size={35}
+                    className="text-[#4ea8a1] inline-block"
+                  />
+                  <IoStatsChart
+                    size={38}
+                    className="text-[#4ea8a1] inline-block"
+                  />
+                </span>
               </div>
             </div>
           );

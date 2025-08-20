@@ -4,13 +4,13 @@
   @apply block text-lg max-md:text-xs pb-1 font-semibold;
 }
 .input {
-  @apply bg-[#E5E5E5] rounded-md border-none focus:outline-none h-10;
+  @apply bg-[#E5E5E5] rounded-md border-none focus:outline-none h-10 pl-3;
 }
 .uploads {
-  @apply bg-[#E5E5E5] inline-block p-20 border-none rounded-2xl text-center cursor-pointer w-100 max-lg:px-10 max-lg:w-90 max-2xl:w-100 max-md:w-70;
+  @apply bg-[#E5E5E5] inline-block px-20 py-20 border-none rounded-2xl text-center cursor-pointer w-100 max-lg:px-10 max-lg:w-90 max-2xl:w-100 max-md:w-70;
 }
 .property {
-  @apply bg-[#E5E5E5] inline-block px-20 py-40 border-none rounded-2xl text-center cursor-pointer w-100 max-2xl:w-100 max-lg:w-90 max-lg:px-10 max-lg:py-30 max-md:w-70 max-md:py-25;
+  @apply bg-[#E5E5E5] inline-block px-20 py-30 border-none rounded-2xl text-center cursor-pointer w-100 max-2xl:w-100 max-lg:w-90 max-lg:px-10 max-lg:py-30 max-md:w-70 max-md:py-25;
 }
 .amenities {
   @apply bg-[#E5E5E5] inline-block px-20 py-25 border-none rounded-2xl text-center cursor-pointer w-90 mr-10 max-md:w-70 max-lg:w-90 max-lg:px-15;
