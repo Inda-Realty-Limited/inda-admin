@@ -98,7 +98,15 @@ export default function AdminLayout({ children }: Props) {
           </nav>
           <div className="pt-2 border-t border-[#E5E5E5]">
             <button
-              onClick={() => router.push("/adminSignIn")}
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  try {
+                    localStorage.removeItem("admin_token");
+                    localStorage.removeItem("admin_profile");
+                  } catch {}
+                }
+                router.push("/adminSignIn");
+              }}
               className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-[#b91c1c] hover:bg-[#FFF1F2]"
             >
               <FiLogOut size={18} />
@@ -108,7 +116,7 @@ export default function AdminLayout({ children }: Props) {
         </aside>
 
         {/* Main content, offset for sidebar on md+ */}
-        <main className="min-w-0 w-full md:ml-56 px-4 md:px-6 py-6 max-w-7xl">
+        <main className="min-w-0 w-full md:w-[calc(100%-14rem)] md:ml-56 px-4 md:px-6 py-6 max-w-full">
           {children}
         </main>
       </div>

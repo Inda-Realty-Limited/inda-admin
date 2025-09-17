@@ -1,95 +1,144 @@
+import { useAdminListings, type ListingFilters } from "@/api";
+import Head from "next/head";
+import { useState } from "react";
 import { CiSearch } from "react-icons/ci";
-import { RiArrowDropDownLine } from "react-icons/ri";
-
-const listing = [
-  {
-    property: "The Grand Residences",
-    status: "Completed",
-    type: "Property Name",
-    price: "$550,000",
-    date: "2023-08-15",
-    actions: "",
-  },
-];
 
 export default function ListingsView() {
+  const [filters, setFilters] = useState<ListingFilters>({
+    page: 1,
+    limit: 20,
+    sort: "-createdAt",
+  });
+  const { data, isLoading, isError, refetch } = useAdminListings(filters);
+
+  function update<K extends keyof ListingFilters>(
+    key: K,
+    val: ListingFilters[K]
+  ) {
+    setFilters((f) => ({
+      ...f,
+      [key]: val,
+      page: key === "page" ? (val as number) : 1,
+    }));
+  }
+
   return (
-    <div className="m-20 border-solid border-1 border-[#E5E5E5] rounded-xl p-20">
-      <div>
-        <div>
-          <h1 className="font-bold text-4xl mb-10 inline-block">
-            All Listings
-          </h1>
-          <div className="text-right">
-            <button className="text-right bg-[#e5e5e5] p-3 mb-5 rounded-lg">
-              Add New Listing
-            </button>
-          </div>
-        </div>
-        <div className="border-solid border-1 border-[#4ea8a1] text-[#4ea8a1] flex p-3 rounded-lg mb-7">
-          <CiSearch size={30} className=" text-[#4ea8a1] pr-5" />
+    <div className="space-y-4">
+      <Head>
+        <title>Listings — Inda Admin</title>
+      </Head>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">All Listings</h1>
+        <button onClick={() => refetch()} className="text-sm text-[#4EA8A1]">
+          Refresh
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="flex-1 border border-[#4EA8A1] text-[#4EA8A1] flex items-center h-11 rounded-lg px-3">
+          <CiSearch size={18} className="mr-2" />
           <input
-            className="w-full border-none focus:outline-none"
-            placeholder="Search by property name or address"
+            className="w-full border-none focus:outline-none placeholder:text-[#4EA8A1]"
+            placeholder="Search by title or URL"
+            value={filters.q || ""}
+            onChange={(e) => update("q", e.target.value)}
           />
         </div>
-        <div className="mb-5">
-          <button className="bg-[#4ea8a199] text-[#f9f9f9] mr-10 p-2 w-50 rounded-lg">
-            Completed Status
-            <RiArrowDropDownLine size={40} className="inline-block" />
-          </button>
-          <button className="bg-[#4ea8a199] text-[#f9f9f9] mr-10 w-50 p-2 rounded-lg">
-            Type <RiArrowDropDownLine size={40} className="inline-block" />
-          </button>
-          <button className="bg-[#4ea8a199] text-[#f9f9f9] mr-10 p-2 w-50 rounded-lg">
-            Price Range{" "}
-            <RiArrowDropDownLine size={40} className="inline-block" />
-          </button>
-          <button className="bg-[#4ea8a199] text-[#f9f9f9] mr-10 p-2 w-50 rounded-lg">
-            Date Added
-            <RiArrowDropDownLine
-              size={40}
-              className="inline-block p-2 rounded-lg"
-            />
-          </button>
+        <select
+          className="h-11 rounded-lg border border-black/10 px-3 bg-white"
+          value={filters.status || ""}
+          onChange={(e) =>
+            update(
+              "status",
+              (e.target.value || undefined) as "active" | "sold" | undefined
+            )
+          }
+        >
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="sold">Sold</option>
+        </select>
+      </div>
+
+      {isLoading && <div className="text-sm text-black/60">Loading…</div>}
+      {isError && (
+        <div className="text-sm text-red-600">Failed to load listings.</div>
+      )}
+
+      <div className="rounded-xl border border-black/5 bg-white overflow-hidden">
+        <div className="grid grid-cols-6 gap-3 px-4 py-2 text-xs font-semibold text-black/70 border-b border-black/5">
+          <div className="col-span-2">Title</div>
+          <div>Type</div>
+          <div>Status</div>
+          <div>Microlocation</div>
+          <div>Created</div>
         </div>
         <div>
-          <div className="grid grid-cols-6 gap-x-10 w-full mb-5 text-xl text-[#101820] font-semibold">
-            <div className="col-span-1 text-center">PROPERTY</div>
-            <div className="col-span-1 text-center">COMPLETION STATUS</div>
-            <div className="col-span-1 text-center">TYPE</div>
-            <div className="col-span-1 text-center">PRICE RANGE</div>
-            <div className="col-span-1 text-center">DATE ADDED</div>
-            <div className="col-span-1 text-center">ACTIONS</div>
-          </div>
-        </div>
-        <div>
-          {listing.map((list) => {
+          {data?.items?.map((lRaw, idx) => {
+            const l = lRaw as {
+              id?: string;
+              _id?: string;
+              listingUrl?: string;
+              title?: string;
+              propertyType?: string;
+              status?: string;
+              listingStatus?: string;
+              microlocationStd?: string;
+              lga?: string;
+              createdAt?: string | number | Date;
+            };
+            const key = l.id || l._id || l.listingUrl || String(idx);
             return (
               <div
-                key={list.property}
-                className="grid  grid-cols-6 gap-x-10 w-full mb-10"
+                key={key}
+                className="grid grid-cols-6 gap-3 px-4 py-3 text-sm border-b border-black/5"
               >
-                <div className="col-span-1 text-center">{list.property}</div>
-                <div className="bg-[#4ea8a129] p-3 rounded-lg col-span-1 text-center">
-                  {list.status}
+                <div
+                  className="col-span-2 truncate"
+                  title={l.title || l.listingUrl}
+                >
+                  {l.title || l.listingUrl || "—"}
                 </div>
-                <div className="border-solid border-1 border-[#4ea8a1] p-3 rounded-lg col-span-1 text-center">
-                  {list.type}
+                <div>{l.propertyType || "—"}</div>
+                <div className="capitalize">
+                  {l.status || l.listingStatus || "—"}
                 </div>
-                <div className="border-solid border-1 border-[#4ea8a1] p-3 rounded-lg col-span-1 text-center">
-                  {list.price}
+                <div className="truncate" title={l.microlocationStd || l.lga}>
+                  {l.microlocationStd || l.lga || "—"}
                 </div>
-                <div className="border-solid border-1 border-[#4ea8a1] p-3 rounded-lg col-span-1 text-center">
-                  {list.date}
-                </div>
-                <div className="border-solid border-1 border-[#4ea8a1] p-3 rounded-lg col-span-1 text-center">
-                  {list.actions}
+                <div>
+                  {l.createdAt
+                    ? new Date(
+                        l.createdAt as string | number | Date
+                      ).toLocaleDateString()
+                    : "—"}
                 </div>
               </div>
             );
           })}
+          {data && data.items?.length === 0 && (
+            <div className="px-4 py-6 text-sm text-black/60">
+              No listings found.
+            </div>
+          )}
         </div>
+      </div>
+
+      <div className="flex items-center justify-between text-sm">
+        <button
+          disabled={(filters.page || 1) <= 1}
+          onClick={() => update("page", (filters.page || 1) - 1)}
+          className="px-3 py-1 rounded bg-black/5 disabled:opacity-50"
+        >
+          Prev
+        </button>
+        <div>Page {filters.page || 1}</div>
+        <button
+          onClick={() => update("page", (filters.page || 1) + 1)}
+          className="px-3 py-1 rounded bg-black/5"
+        >
+          Next
+        </button>
       </div>
     </div>
   );

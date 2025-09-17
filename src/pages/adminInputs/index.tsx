@@ -53,7 +53,6 @@ export default function AdminInput() {
                     className={`row-start-${broad.row} row-end-${
                       broad.row + 1
                     } col-start-${broad.col}`}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     data-colspan={
                       (broad as unknown as { colSpan?: number }).colSpan
                     }
@@ -82,12 +81,13 @@ export default function AdminInput() {
                   {...register("unit", { required: "This field is required" })}
                   className="input w-full"
                 />
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 <p>
                   {
-                    (errors as Record<string, any>).unit?.message as
-                      | string
-                      | undefined
+                    (
+                      (errors as Record<string, unknown>).unit as
+                        | { message?: string }
+                        | undefined
+                    )?.message
                   }
                 </p>
               </div>

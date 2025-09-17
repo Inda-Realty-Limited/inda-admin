@@ -14,8 +14,7 @@ Error.getInitialProps = ({ res, err }: NextPageContext) => {
   const statusCode = res
     ? res.statusCode
     : err && typeof (err as unknown) === "object" && err
-    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (err as unknown as { statusCode?: number }).statusCode ?? 404
+    ? (err as unknown as { statusCode?: number }).statusCode ?? 404
     : 404;
   return { statusCode };
 };

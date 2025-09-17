@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { AppProps } from "next/app";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -5,6 +6,8 @@ import AdminPropertyLayout from "../components/AdminPropertyLayout";
 import AuthGuard from "../components/AuthGuard";
 import AdminLayout from "../components/layouts/AdminLayout";
 import "../styles/globals.css";
+
+const queryClient = new QueryClient();
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -30,12 +33,12 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   }
 
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <Head>
         <title>Inda Admin</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       {content}
-    </>
+    </QueryClientProvider>
   );
 }

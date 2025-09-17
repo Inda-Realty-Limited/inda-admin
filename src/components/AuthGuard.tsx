@@ -10,7 +10,9 @@ export default function AuthGuard({ children }: Props) {
   useEffect(() => {
     // Simple client-side check; replace with real auth as needed
     const token =
-      typeof window !== "undefined" ? localStorage.getItem("inda_token") : null;
+      typeof window !== "undefined"
+        ? localStorage.getItem("admin_token")
+        : null;
     if (!token) {
       router.replace("/adminSignIn");
     } else {

@@ -1,14 +1,39 @@
+import { adminLogin } from "@/api";
 import Head from "next/head";
 import { useRouter } from "next/router";
+import { useState } from "react";
 import { FiLock, FiMail } from "react-icons/fi";
 
 export default function AdminSignIn() {
   const router = useRouter();
-  function handleLogin() {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("inda_token", "demo_token");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleLogin(e?: React.FormEvent) {
+    e?.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await adminLogin(email, password);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("admin_token", res.token);
+        try {
+          localStorage.setItem("admin_profile", JSON.stringify(res.admin));
+        } catch {}
+      }
+      router.push("/dashboard/overview");
+    } catch (err: unknown) {
+      const e = err as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const msg = e?.response?.data?.message || e?.message || "Login failed";
+      setError(String(msg));
+    } finally {
+      setLoading(false);
     }
-    router.push("/dashboard/overview");
   }
   return (
     <div className="min-h-screen bg-[#fff] flex items-center justify-center px-4">
@@ -29,7 +54,7 @@ export default function AdminSignIn() {
           </p>
         </div>
 
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={handleLogin}>
           {/* Email */}
           <div className="relative">
             <FiMail
@@ -40,6 +65,9 @@ export default function AdminSignIn() {
               type="email"
               placeholder="Email"
               className="w-full h-12 bg-[#4EA8A1] text-white placeholder-white/95 rounded-md pl-11 pr-4 outline-none border border-transparent focus:ring-2 focus:ring-[#4EA8A1]"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
             />
           </div>
 
@@ -53,17 +81,22 @@ export default function AdminSignIn() {
               type="password"
               placeholder="Password"
               className="w-full h-12 bg-white text-[#101820] placeholder-[#9CA3AF] rounded-md pl-11 pr-4 outline-none border border-[#4EA8A1] focus:ring-2 focus:ring-[#4EA8A1]"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
             />
           </div>
+
+          {error && <div className="text-red-600 text-sm">{error}</div>}
 
           {/* Button */}
           <div className="pt-4">
             <button
-              type="button"
-              onClick={handleLogin}
-              className="block mx-auto h-10 w-full rounded-md bg-[#4EA8A1] text-white font-semibold hover:opacity-95"
+              type="submit"
+              disabled={loading}
+              className="block mx-auto h-10 w-full rounded-md bg-[#4EA8A1] text-white font-semibold hover:opacity-95 disabled:opacity-60"
             >
-              Log In
+              {loading ? "Signing in…" : "Log In"}
             </button>
           </div>
         </form>
