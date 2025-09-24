@@ -36,14 +36,22 @@ export default function ListingsView() {
       {
         key: "source",
         label: "Source",
-        render: (value: any, row: any) => row.source || "Admin",
+        render: (_value: unknown, row: Record<string, unknown>) => {
+          const src = row["source"];
+          return typeof src === "string" && src.length > 0 ? src : "Admin";
+        },
       },
       {
         key: "title",
         label: "Title",
-        render: (value: string, row: any) => {
-          const title = row.title || "Untitled";
-          const url = row.listingUrl;
+        render: (_value: unknown, row: Record<string, unknown>) => {
+          const t = row["title"];
+          const title = typeof t === "string" && t.length > 0 ? t : "Untitled";
+          const urlVal = row["listingUrl"];
+          const url =
+            typeof urlVal === "string" && urlVal.length > 0
+              ? urlVal
+              : undefined;
 
           return url ? (
             <a
@@ -65,41 +73,43 @@ export default function ListingsView() {
       {
         key: "propertyRef",
         label: "Ref ID",
-        render: (value: string) => (
+        render: (value: unknown) => (
           <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
-            {value || "—"}
+            {typeof value === "string" && value.length > 0 ? value : "—"}
           </span>
         ),
       },
       {
         key: "propertyTypeStd",
         label: "Type",
-        render: (value: string) => value || "—",
+        render: (value: unknown) =>
+          typeof value === "string" && value.length > 0 ? value : "—",
       },
       {
         key: "bedrooms",
         label: "Beds",
         align: "center" as const,
-        render: (value: number) => value || "—",
+        render: (value: unknown) => (typeof value === "number" ? value : "—"),
       },
       {
         key: "bathrooms",
         label: "Baths",
         align: "center" as const,
-        render: (value: number) => value || "—",
+        render: (value: unknown) => (typeof value === "number" ? value : "—"),
       },
       {
         key: "sizeSqm",
         label: "Size (sqm)",
         align: "center" as const,
-        render: (value: number) => (value ? value.toLocaleString() : "—"),
+        render: (value: unknown) =>
+          typeof value === "number" ? value.toLocaleString() : "—",
       },
       {
         key: "priceNGN",
         label: "Price (NGN)",
         align: "right" as const,
-        render: (value: number) =>
-          value ? (
+        render: (value: unknown) =>
+          typeof value === "number" ? (
             <span className="font-medium">{formatPrice(value)}</span>
           ) : (
             "—"
@@ -108,8 +118,15 @@ export default function ListingsView() {
       {
         key: "microlocationStd",
         label: "Location",
-        render: (value: string, row: any) => {
-          const location = value || row.lga || "—";
+        render: (value: unknown, row: Record<string, unknown>) => {
+          const lgaVal = row["lga"];
+          const strVal =
+            typeof value === "string" && value.length > 0 ? value : undefined;
+          const lga =
+            typeof lgaVal === "string" && lgaVal.length > 0
+              ? lgaVal
+              : undefined;
+          const location = strVal || lga || "—";
           return (
             <span title={location} className="truncate">
               {location}
@@ -121,9 +138,16 @@ export default function ListingsView() {
         key: "analytics",
         label: "FMV (NGN)",
         align: "right" as const,
-        render: (value: any, row: any) => {
-          const fmvValue = value?.fmv?.valueNGN;
-          return fmvValue ? (
+        render: (value: unknown) => {
+          let fmvValue: number | undefined;
+          if (value && typeof value === "object") {
+            const fmv = (value as Record<string, unknown>)["fmv"];
+            if (fmv && typeof fmv === "object") {
+              const v = (fmv as Record<string, unknown>)["valueNGN"];
+              if (typeof v === "number") fmvValue = v;
+            }
+          }
+          return typeof fmvValue === "number" ? (
             <span className="font-medium">{formatPrice(fmvValue)}</span>
           ) : (
             "—"
@@ -134,8 +158,12 @@ export default function ListingsView() {
         key: "indaScore",
         label: "Inda Score",
         align: "center" as const,
-        render: (value: any) => {
-          const score = value?.finalScore;
+        render: (value: unknown) => {
+          let score: number | undefined;
+          if (value && typeof value === "object") {
+            const s = (value as Record<string, unknown>)["finalScore"];
+            if (typeof s === "number") score = s;
+          }
           if (!score) return "—";
 
           const getScoreColor = (score: number) => {
@@ -159,7 +187,8 @@ export default function ListingsView() {
         key: "listingStatus",
         label: "Status",
         align: "center" as const,
-        render: (value: string) => {
+        render: (value: unknown) => {
+          const val = typeof value === "string" ? value : "";
           const getStatusColor = (status: string) => {
             switch (status) {
               case "active":
@@ -174,10 +203,10 @@ export default function ListingsView() {
           return (
             <span
               className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                value
+                val
               )}`}
             >
-              {value || "Unknown"}
+              {val || "Unknown"}
             </span>
           );
         },
@@ -186,7 +215,7 @@ export default function ListingsView() {
         key: "actions",
         label: "Actions",
         align: "center" as const,
-        render: (value: any, row: any) => (
+        render: (_value: unknown, row: Record<string, unknown>) => (
           <div className="flex items-center justify-center gap-2">
             <TableButton
               variant="secondary"
@@ -210,12 +239,12 @@ export default function ListingsView() {
   );
 
   // Action handlers
-  const handleFlag = (row: any) => {
+  const handleFlag = (row: Record<string, unknown>) => {
     console.log("Flag listing:", row);
     // Implement flag functionality
   };
 
-  const handleDelete = (row: any) => {
+  const handleDelete = (row: Record<string, unknown>) => {
     console.log("Delete listing:", row);
     // Implement delete functionality
   };
@@ -225,42 +254,46 @@ export default function ListingsView() {
       <Head>
         <title>Listings — Inda Admin</title>
       </Head>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">All Listings</h1>
-        <button onClick={() => refetch()} className="text-sm text-[#4EA8A1]">
-          Refresh
-        </button>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">All Listings</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Manage and review all property listings in the system
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#4EA8A1]/90 transition-colors text-sm">
+            Export Data
+          </button>
+          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+            Add Listing
+          </button>
+          <button
+            onClick={() => refetch()}
+            className="text-sm text-[#4EA8A1] hover:text-[#4EA8A1]/80"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+      {/* Search Filter */}
+      <div className="border border-[#4EA8A1] text-[#4EA8A1] flex items-center h-11 rounded-lg px-3">
+        <CiSearch size={18} className="mr-2" />
+        <input
+          className="w-full border-none focus:outline-none placeholder:text-[#4EA8A1]"
+          placeholder="Search by title or URL"
+          value={filters.q || ""}
+          onChange={(e) => update("q", e.target.value)}
+        />
+      </div>
+
+      {/* Advanced Filter */}
+      <div>
         <button className="inline-flex items-center gap-2 px-4 py-2 bg-transparent border border-[#4EA8A1] text-[#4EA8A1] rounded-lg hover:bg-[#4EA8A1] hover:text-white transition-colors w-fit">
           <span className="text-sm">⚙️</span>
           Advanced Filter
         </button>
-        <div className="flex-1 border border-[#4EA8A1] text-[#4EA8A1] flex items-center h-11 rounded-lg px-3">
-          <CiSearch size={18} className="mr-2" />
-          <input
-            className="w-full border-none focus:outline-none placeholder:text-[#4EA8A1]"
-            placeholder="Search by title or URL"
-            value={filters.q || ""}
-            onChange={(e) => update("q", e.target.value)}
-          />
-        </div>
-        <select
-          className="h-11 rounded-lg border border-black/10 px-3 bg-white"
-          value={filters.status || ""}
-          onChange={(e) =>
-            update(
-              "status",
-              (e.target.value || undefined) as "active" | "sold" | undefined
-            )
-          }
-        >
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="sold">Sold</option>
-        </select>
       </div>
 
       {/* Loading and Error States */}

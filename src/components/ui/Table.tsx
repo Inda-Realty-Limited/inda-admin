@@ -5,11 +5,15 @@ export interface TableColumn {
   label: string;
   width?: string;
   align?: "left" | "center" | "right";
-  render?: (value: any, row: any, index: number) => React.ReactNode;
+  render?: (
+    value: unknown,
+    row: Record<string, unknown>,
+    index: number
+  ) => React.ReactNode;
 }
 
 export interface TableRow {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface TableProps {
@@ -77,9 +81,14 @@ export function Table({
               >
                 {columns.map((column) => {
                   const cellValue = row[column.key];
-                  const cellContent = column.render
+                  const cellContent: React.ReactNode = column.render
                     ? column.render(cellValue, row, rowIndex)
-                    : cellValue;
+                    : cellValue === null || cellValue === undefined
+                    ? "—"
+                    : typeof cellValue === "string" ||
+                      typeof cellValue === "number"
+                    ? (cellValue as React.ReactNode)
+                    : String(cellValue);
 
                   return (
                     <td
