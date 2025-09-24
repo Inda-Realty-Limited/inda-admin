@@ -116,7 +116,7 @@ export default function AdminLayout({ children }: Props) {
         </aside>
 
         {/* Main content, offset for sidebar on md+ */}
-        <main className="min-w-0 w-full md:w-[calc(100%-14rem)] md:ml-56 px-4 md:px-6 py-6 max-w-full">
+        <main className="min-w-0 w-full md:w-[calc(100%-14rem)] md:ml-56 px-12 md:px-12 py-12 max-w-full">
           {children}
         </main>
       </div>
