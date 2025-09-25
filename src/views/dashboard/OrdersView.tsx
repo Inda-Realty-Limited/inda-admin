@@ -2,11 +2,13 @@ import { useAdminOrders } from "@/api";
 import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
 import { formatPrice } from "@/utils";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
 import { CiSearch } from "react-icons/ci";
 import { FiCopy } from "react-icons/fi";
 
 export default function OrdersView() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
   const [planFilter, setPlanFilter] = useState("");
@@ -261,7 +263,13 @@ export default function OrdersView() {
   );
 
   function handleView(row: Record<string, unknown>) {
-    console.log("View order", row);
+    const userId = typeof row["userId"] === "string" ? row["userId"] : null;
+    const listingId =
+      typeof row["listingId"] === "string" ? row["listingId"] : null;
+    if (userId) {
+      const groupId = `${userId}:${listingId || "null"}`;
+      router.push(`/dashboard/orders/${groupId}`);
+    }
   }
   function handleCancel(row: Record<string, unknown>) {
     console.log("Cancel order", row);

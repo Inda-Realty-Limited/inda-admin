@@ -2,10 +2,12 @@ import { useAdminListings, type ListingFilters } from "@/api";
 import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
 import { formatPrice } from "@/utils";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
 import { CiSearch } from "react-icons/ci";
 
 export default function ListingsView() {
+  const router = useRouter();
   const [filters, setFilters] = useState<ListingFilters>({
     page: 1,
     limit: 20,
@@ -231,6 +233,15 @@ export default function ListingsView() {
             >
               Delete
             </TableButton>
+            {typeof row["_id"] === "string" && (
+              <TableButton
+                variant="secondary"
+                size="sm"
+                onClick={() => router.push(`/dashboard/listings/${row["_id"]}`)}
+              >
+                View
+              </TableButton>
+            )}
           </div>
         ),
       },
@@ -265,7 +276,7 @@ export default function ListingsView() {
           <button className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#4EA8A1]/90 transition-colors text-sm">
             Export Data
           </button>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+          <button className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#3F8C86] transition-colors text-sm">
             Add Listing
           </button>
           <button

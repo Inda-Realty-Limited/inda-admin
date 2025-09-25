@@ -1,10 +1,12 @@
 import { useAdminUsers } from "@/api";
 import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
 import { CiSearch } from "react-icons/ci";
 
 export default function UsersView() {
+  const router = useRouter();
   const [filters, setFilters] = useState({
     page: 1,
     limit: 20,
@@ -161,6 +163,15 @@ export default function UsersView() {
             >
               {row.isBlocked ? "Unblock" : "Block"}
             </TableButton>
+            {typeof row["_id"] === "string" && (
+              <TableButton
+                variant="secondary"
+                size="sm"
+                onClick={() => router.push(`/dashboard/users/${row["_id"]}`)}
+              >
+                View
+              </TableButton>
+            )}
           </div>
         ),
       },
@@ -195,7 +206,7 @@ export default function UsersView() {
           <button className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#4EA8A1]/90 transition-colors text-sm">
             Export Users
           </button>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+          <button className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#3F8C86] transition-colors text-sm">
             Add User
           </button>
           <button

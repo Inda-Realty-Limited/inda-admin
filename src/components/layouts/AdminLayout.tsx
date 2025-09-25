@@ -2,8 +2,11 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";
 import {
+  FiCode,
   FiCreditCard,
+  FiDatabase,
   FiHome,
+  FiLayers,
   FiList,
   FiLogOut,
   FiMapPin,
@@ -15,26 +18,69 @@ import {
 
 type Props = { children: React.ReactNode };
 
-const navItems: Array<{
+type NavItem = {
   label: string;
   href: string;
   icon: React.ElementType;
-}> = [
-  { label: "Overview", href: "/dashboard/overview", icon: FiHome },
-  { label: "Listings", href: "/dashboard/listings", icon: FiList },
+  section?: string;
+};
+const navItems: NavItem[] = [
+  {
+    label: "Overview",
+    href: "/dashboard/overview",
+    icon: FiHome,
+    section: "core",
+  },
+  {
+    label: "Listings",
+    href: "/dashboard/listings",
+    icon: FiList,
+    section: "core",
+  },
   {
     label: "Microlocations",
     href: "/dashboard/microlocations",
     icon: FiMapPin,
+    section: "core",
   },
-  { label: "Users", href: "/dashboard/users", icon: FiUsers },
+  { label: "Users", href: "/dashboard/users", icon: FiUsers, section: "core" },
   {
     label: "Transactions",
     href: "/dashboard/transactions",
     icon: FiCreditCard,
+    section: "core",
   },
-  { label: "Orders", href: "/dashboard/orders", icon: FiShoppingCart },
-  { label: "Settings", href: "/dashboard/settings", icon: FiSettings },
+  {
+    label: "Orders",
+    href: "/dashboard/orders",
+    icon: FiShoppingCart,
+    section: "core",
+  },
+  // Pipeline
+  {
+    label: "Raw Listings",
+    href: "/dashboard/pipeline/raw-listings",
+    icon: FiDatabase,
+    section: "pipeline",
+  },
+  {
+    label: "Cleaned Listings",
+    href: "/dashboard/pipeline/cleaned-listings",
+    icon: FiLayers,
+    section: "pipeline",
+  },
+  {
+    label: "Computed Listings",
+    href: "/dashboard/pipeline/computed-listings",
+    icon: FiCode,
+    section: "pipeline",
+  },
+  {
+    label: "Settings",
+    href: "/dashboard/settings",
+    icon: FiSettings,
+    section: "other",
+  },
 ];
 
 export default function AdminLayout({ children }: Props) {
@@ -70,26 +116,88 @@ export default function AdminLayout({ children }: Props) {
             open ? "translate-x-0" : "-translate-x-full"
           } md:translate-x-0 flex flex-col`}
         >
-          <nav className="space-y-1 flex-1 overflow-y-auto">
-            {navItems.map(({ label, href, icon: Icon }) => {
-              const active =
-                router.pathname === href || router.pathname.startsWith(href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`flex items-center gap-3 rounded-md px-3 py-2 transition-colors ${
-                    active
-                      ? "bg-[#4EA8A1] text-white"
-                      : "text-[#101820] hover:bg-[#F3F4F6]"
-                  }`}
-                  onClick={() => setOpen(false)}
-                >
-                  <Icon size={18} />
-                  <span className="text-sm font-medium">{label}</span>
-                </Link>
-              );
-            })}
+          <nav className="space-y-6 flex-1 overflow-y-auto text-sm">
+            <div className="space-y-1">
+              <p className="px-3 text-[10px] uppercase tracking-wide text-gray-500 font-semibold">
+                Core
+              </p>
+              {navItems
+                .filter((n) => n.section === "core")
+                .map(({ label, href, icon: Icon }) => {
+                  const active =
+                    router.pathname === href ||
+                    router.pathname.startsWith(href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={`flex items-center gap-3 rounded-md px-3 py-2 transition-colors ${
+                        active
+                          ? "bg-[#4EA8A1] text-white"
+                          : "text-[#101820] hover:bg-[#F3F4F6]"
+                      }`}
+                      onClick={() => setOpen(false)}
+                    >
+                      <Icon size={18} />
+                      <span className="font-medium">{label}</span>
+                    </Link>
+                  );
+                })}
+            </div>
+            <div className="space-y-1">
+              <p className="px-3 text-[10px] uppercase tracking-wide text-gray-500 font-semibold">
+                Pipeline
+              </p>
+              {navItems
+                .filter((n) => n.section === "pipeline")
+                .map(({ label, href, icon: Icon }) => {
+                  const active =
+                    router.pathname === href ||
+                    router.pathname.startsWith(href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={`flex items-center gap-3 rounded-md px-3 py-2 transition-colors ${
+                        active
+                          ? "bg-[#4EA8A1] text-white"
+                          : "text-[#101820] hover:bg-[#F3F4F6]"
+                      }`}
+                      onClick={() => setOpen(false)}
+                    >
+                      <Icon size={18} />
+                      <span className="font-medium">{label}</span>
+                    </Link>
+                  );
+                })}
+            </div>
+            <div className="space-y-1">
+              <p className="px-3 text-[10px] uppercase tracking-wide text-gray-500 font-semibold">
+                Other
+              </p>
+              {navItems
+                .filter((n) => n.section === "other")
+                .map(({ label, href, icon: Icon }) => {
+                  const active =
+                    router.pathname === href ||
+                    router.pathname.startsWith(href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={`flex items-center gap-3 rounded-md px-3 py-2 transition-colors ${
+                        active
+                          ? "bg-[#4EA8A1] text-white"
+                          : "text-[#101820] hover:bg-[#F3F4F6]"
+                      }`}
+                      onClick={() => setOpen(false)}
+                    >
+                      <Icon size={18} />
+                      <span className="font-medium">{label}</span>
+                    </Link>
+                  );
+                })}
+            </div>
           </nav>
           <div className="pt-2 border-t border-[#E5E5E5]">
             <button
