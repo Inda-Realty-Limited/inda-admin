@@ -2,14 +2,14 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";
 import {
-  FiClock,
+  FiCreditCard,
   FiHome,
   FiList,
   FiLogOut,
+  FiMapPin,
   FiMenu,
-  FiTrendingUp,
-  FiUser,
-  FiUserCheck,
+  FiSettings,
+  FiShoppingCart,
   FiUsers,
 } from "react-icons/fi";
 
@@ -22,24 +22,19 @@ const navItems: Array<{
 }> = [
   { label: "Overview", href: "/dashboard/overview", icon: FiHome },
   { label: "Listings", href: "/dashboard/listings", icon: FiList },
-  { label: "Developers", href: "/dashboard/developers", icon: FiUsers },
-  { label: "Agents", href: "/dashboard/agents", icon: FiUserCheck },
   {
-    label: "Claimed Profiles",
-    href: "/dashboard/claimed-profiles",
-    icon: FiUser,
-  },
-  {
-    label: "Pending Requests",
-    href: "/dashboard/pending-requests",
-    icon: FiClock,
+    label: "Microlocations",
+    href: "/dashboard/microlocations",
+    icon: FiMapPin,
   },
   { label: "Users", href: "/dashboard/users", icon: FiUsers },
   {
-    label: "Sales Requests",
-    href: "/dashboard/sales-requests",
-    icon: FiTrendingUp,
+    label: "Transactions",
+    href: "/dashboard/transactions",
+    icon: FiCreditCard,
   },
+  { label: "Orders", href: "/dashboard/orders", icon: FiShoppingCart },
+  { label: "Settings", href: "/dashboard/settings", icon: FiSettings },
 ];
 
 export default function AdminLayout({ children }: Props) {

@@ -105,18 +105,18 @@ export default function OverviewView() {
       },
       {
         label: "Microlocations",
-        value: 12345, // placeholder as shown in design
-        delta: 12,
-        href: "#",
-        buttonText: "Manage Microlocation",
+        value: 0,
+        delta: 0,
+        href: "/dashboard/microlocations",
+        buttonText: "Manage Microlocations",
       },
       {
         label: "Transactions",
-        value: 12345, // format as currency
-        delta: 12,
-        href: "/dashboard/sales-requests",
-        buttonText: "Manage Transaction",
-        isCurrency: true,
+        value: 0,
+        delta: 0,
+        href: "/dashboard/transactions",
+        buttonText: "Manage Transactions",
+        isCurrency: false,
       },
     ];
   }, [data]);

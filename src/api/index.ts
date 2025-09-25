@@ -1,7 +1,9 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import axios, { type AxiosError, type AxiosRequestHeaders } from "axios";
 
-const BASE_URL = "https://inda-core-backend-services.onrender.com";
+// Prefer local network base URL if available (fallback to previous hosted URL)
+const BASE_URL =
+  process.env.NEXT_PUBLIC_ADMIN_API_BASE || "http://192.168.0.102:9009"; // prior hosted: https://inda-core-backend-services.onrender.com
 
 export const adminApi = axios.create({
   baseURL: BASE_URL + "/admin",
@@ -91,9 +93,46 @@ type LoginResponse = {
   admin: AdminProfile;
 };
 export async function adminLogin(email: string, password: string) {
-  const { data } = await adminApi.post<LoginResponse>("/login", {
+  const { data } = await adminApi.post<LoginResponse>("/auth/login", {
     email,
     password,
+  });
+  return data;
+}
+
+// Additional auth endpoints per new API surface
+export async function adminRegister(body: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  isSuperAdmin?: boolean;
+}) {
+  const { data } = await adminApi.post("/auth/register", body);
+  return data;
+}
+
+export async function adminVerifyOtp(email: string, code: string) {
+  const { data } = await adminApi.post("/auth/verify-otp", { email, code });
+  return data;
+}
+
+export async function adminRequestPasswordReset(email: string) {
+  const { data } = await adminApi.post("/auth/request-password-reset", {
+    email,
+  });
+  return data;
+}
+
+export async function adminResetPassword(
+  email: string,
+  code: string,
+  newPassword: string
+) {
+  const { data } = await adminApi.post("/auth/reset-password", {
+    email,
+    code,
+    newPassword,
   });
   return data;
 }
@@ -132,6 +171,21 @@ export function useAdminListings(filters: ListingFilters) {
   });
 }
 
+// Single listing detail
+type ListingDetailResponse = { status: string; data: AnyListing };
+export function useAdminListing(id?: string) {
+  return useQuery({
+    queryKey: ["admin", "listing", id],
+    queryFn: async () => {
+      const { data } = await adminApi.get<ListingDetailResponse>(
+        `/listings/${id}`
+      );
+      return data.data;
+    },
+    enabled: !!id,
+  });
+}
+
 // ---- Users ----
 type AnyUser = Record<string, unknown>;
 type UsersResponse = { status: string; data: PageList<AnyUser> };
@@ -145,6 +199,19 @@ export function useAdminUsers(params: Record<string, unknown>) {
       return data.data;
     },
     placeholderData: keepPreviousData,
+  });
+}
+
+// Single user detail
+type UserDetailResponse = { status: string; data: AnyUser };
+export function useAdminUser(id?: string) {
+  return useQuery({
+    queryKey: ["admin", "user", id],
+    queryFn: async () => {
+      const { data } = await adminApi.get<UserDetailResponse>(`/users/${id}`);
+      return data.data;
+    },
+    enabled: !!id,
   });
 }
 
@@ -164,6 +231,21 @@ export function useAdminPayments(params: Record<string, unknown>) {
   });
 }
 
+// Single payment
+type PaymentDetailResponse = { status: string; data: AnyPayment };
+export function useAdminPayment(id?: string) {
+  return useQuery({
+    queryKey: ["admin", "payment", id],
+    queryFn: async () => {
+      const { data } = await adminApi.get<PaymentDetailResponse>(
+        `/payments/${id}`
+      );
+      return data.data;
+    },
+    enabled: !!id,
+  });
+}
+
 // ---- Orders ----
 type OrdersResponse = {
   status: string;
@@ -179,5 +261,65 @@ export function useAdminOrders(page = 1, limit = 50) {
       return data.data;
     },
     placeholderData: keepPreviousData,
+  });
+}
+
+// Order group detail
+type OrderGroupResponse = { status: string; data: Record<string, unknown> };
+export function useAdminOrderGroup(groupId?: string) {
+  return useQuery({
+    queryKey: ["admin", "orders", groupId],
+    queryFn: async () => {
+      const { data } = await adminApi.get<OrderGroupResponse>(
+        `/orders/${groupId}`
+      );
+      return data.data;
+    },
+    enabled: !!groupId,
+  });
+}
+
+// ---- Microlocations ----
+export type MicrolocationFilters = {
+  q?: string;
+  state?: string;
+  macroLocation?: string;
+  clusterType?: string;
+  tag?: string; // microlocationTag
+  page?: number;
+  limit?: number;
+  sort?: string;
+};
+
+type AnyMicrolocation = Record<string, unknown>;
+type MicrolocationsResponse = {
+  status: string;
+  data: PageList<AnyMicrolocation>;
+};
+export function useAdminMicrolocations(filters: MicrolocationFilters) {
+  return useQuery({
+    queryKey: ["admin", "microlocations", filters],
+    queryFn: async () => {
+      const { data } = await adminApi.get<MicrolocationsResponse>(
+        "/microlocations",
+        { params: filters }
+      );
+      return data.data;
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+type MicrolocationDetailResponse = { status: string; data: AnyMicrolocation };
+export function useAdminMicrolocation(id?: string) {
+  return useQuery({
+    queryKey: ["admin", "microlocation", id],
+    queryFn: async () => {
+      const { data } = await adminApi.get<MicrolocationDetailResponse>(
+        `/microlocations/${id}`
+      );
+      return data.data;
+    },
+    enabled: !!id,
   });
 }
