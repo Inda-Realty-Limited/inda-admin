@@ -10,7 +10,12 @@ import {
   useSoftDeleteMicrolocation,
   useUpdateMicrolocation,
   useUpdateMicrolocationGeo,
+  useMicrolocationDataset,
+  useCreateMicrolocationDatasetItem,
+  usePatchMicrolocationDatasetItem,
+  useDeleteMicrolocationDatasetItem,
   type MicrolocationFilters,
+  type MicrolocationDatasetType,
 } from "@/api";
 import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
 import Head from "next/head";
@@ -18,6 +23,9 @@ import { useMemo, useState } from "react";
 import { CiSearch } from "react-icons/ci";
 
 export default function MicrolocationsView() {
+  const [tab, setTab] = useState<
+    "browse" | "fmv" | "appreciation" | "yields"
+  >("browse");
   const [filters, setFilters] = useState<MicrolocationFilters>({
     page: 1,
     limit: 20,
@@ -282,8 +290,31 @@ export default function MicrolocationsView() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="border border-[#4EA8A1] text-[#4EA8A1] flex items-center h-11 rounded-lg px-3">
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+        {[
+          { key: "browse", label: "Browse" },
+          { key: "fmv", label: "FMV Dataset" },
+          { key: "appreciation", label: "Appreciation Dataset" },
+          { key: "yields", label: "Yields Dataset" },
+        ].map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key as typeof tab)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors border ${
+              tab === t.key
+                ? "bg-[#4EA8A1] text-white border-[#4EA8A1]"
+                : "border-transparent text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Search (only for Browse) */}
+      {tab === "browse" && (
+        <div className="border border-[#4EA8A1] text-[#4EA8A1] flex items-center h-11 rounded-lg px-3">
         <CiSearch size={18} className="mr-2" />
         <input
           className="w-full border-none focus:outline-none placeholder:text-[#4EA8A1] bg-transparent"
@@ -324,10 +355,12 @@ export default function MicrolocationsView() {
             Reset All
           </button>
         )}
-      </div>
+        </div>
+      )}
 
-      {/* Advanced toggle */}
-      <div className="flex items-center gap-3">
+      {/* Advanced toggle (only for Browse) */}
+      {tab === "browse" && (
+        <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => setShowAdvanced((v) => !v)}
@@ -361,9 +394,10 @@ export default function MicrolocationsView() {
             Reset Filters
           </button>
         )}
-      </div>
+        </div>
+      )}
 
-      {showAdvanced && (
+      {tab === "browse" && showAdvanced && (
         <div className="grid gap-4 md:grid-cols-5 bg-white border border-gray-200 rounded-lg p-4">
           {/* State */}
           <div className="flex flex-col gap-1">
@@ -532,23 +566,30 @@ export default function MicrolocationsView() {
         </div>
       )}
 
-      {!isLoading && !isError && (
-        <Table
-          columns={columns}
-          data={data?.items || []}
-          emptyMessage="No microlocations found."
-        />
+      {/* Browse tab content */}
+      {tab === "browse" && !isLoading && !isError && (
+        <>
+          <Table
+            columns={columns}
+            data={data?.items || []}
+            emptyMessage="No microlocations found."
+          />
+          {totalItems > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              onPageChange={(p) => update("page", p)}
+              className="mt-6"
+            />
+          )}
+        </>
       )}
 
-      {!isLoading && !isError && totalItems > 0 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          itemsPerPage={itemsPerPage}
-          onPageChange={(p) => update("page", p)}
-          className="mt-6"
-        />
+      {/* Dataset tabs */}
+      {tab !== "browse" && (
+        <MicrolocationDatasetTab dataset={tab as MicrolocationDatasetType} />
       )}
 
       {selectedId && (
@@ -1112,3 +1153,227 @@ function exportCsv(items: Record<string, unknown>[]) {
 }
 
 // Hook composition wrapper (kept outside component earlier for separation – but we already invoked inside component)
+
+// Dataset tab component with generic JSON CRUD
+function MicrolocationDatasetTab({
+  dataset,
+}: {
+  dataset: MicrolocationDatasetType;
+}) {
+  const [params, setParams] = useState({ page: 1, limit: 20, q: "", state: "", microlocation: "" });
+  const { data, isLoading, isError } = useMicrolocationDataset(dataset, params);
+  const createItem = useCreateMicrolocationDatasetItem(dataset);
+  const [editorOpen, setEditorOpen] = useState<{
+    mode: "create" | "edit" | null;
+    id?: string;
+    json?: string;
+  }>({ mode: null });
+  const patchItem = usePatchMicrolocationDatasetItem(dataset, editorOpen.id || "");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deleteItem = useDeleteMicrolocationDatasetItem(dataset, deletingId || "");
+
+  const items = data?.items || [];
+  const cols = inferColumns(items);
+
+  function onSave() {
+    if (!editorOpen.mode) return;
+    try {
+      const payload = editorOpen.json ? (JSON.parse(editorOpen.json) as Record<string, unknown>) : {};
+      if (editorOpen.mode === "create") {
+        createItem.mutate(payload, { onSuccess: () => setEditorOpen({ mode: null }) });
+      } else if (editorOpen.mode === "edit" && editorOpen.id) {
+        patchItem.mutate(payload, { onSuccess: () => setEditorOpen({ mode: null }) });
+      }
+    } catch (e) {
+      alert("Invalid JSON: " + (e as Error).message);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          value={params.q}
+          onChange={(e) => setParams((p) => ({ ...p, q: e.target.value, page: 1 }))}
+          placeholder="Search..."
+          className="h-9 border rounded px-2 text-sm"
+        />
+        <input
+          value={params.state}
+          onChange={(e) => setParams((p) => ({ ...p, state: e.target.value, page: 1 }))}
+          placeholder="State"
+          className="h-9 border rounded px-2 text-sm"
+        />
+        <input
+          value={params.microlocation}
+          onChange={(e) => setParams((p) => ({ ...p, microlocation: e.target.value, page: 1 }))}
+          placeholder="Microlocation"
+          className="h-9 border rounded px-2 text-sm"
+        />
+        <button
+          onClick={() => setEditorOpen({ mode: "create", json: "{\n  \"state\": \"\",\n  \"microlocation\": \"\",\n  \"value\": 0\n}" })}
+          className="px-3 py-2 bg-[#4EA8A1] text-white rounded text-sm"
+        >
+          Add Item
+        </button>
+      </div>
+
+      {isLoading && (
+        <div className="rounded border bg-white p-8 text-center text-gray-500">Loading dataset…</div>
+      )}
+      {isError && (
+        <div className="rounded border border-red-200 bg-red-50 p-4 text-red-700">Failed to load dataset.</div>
+      )}
+      {!isLoading && !isError && (
+        <div className="overflow-x-auto rounded border bg-white">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 text-gray-600">
+              <tr>
+                {cols.map((c) => (
+                  <th key={c} className="px-3 py-2 text-left font-medium whitespace-nowrap">{c}</th>
+                ))}
+                <th className="px-3 py-2 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={cols.length + 1} className="px-3 py-8 text-center text-gray-500">No items</td>
+                </tr>
+              )}
+              {items.map((it, idx) => {
+                const id = String((it as Record<string, unknown>)._id || "");
+                return (
+                  <tr key={id || idx} className={idx % 2 ? "bg-white" : "bg-gray-50/50"}>
+                    {cols.map((c) => (
+                      <td key={c} className="px-3 py-2 align-top whitespace-nowrap max-w-[240px] truncate" title={stringifyCell((it as any)[c])}>
+                        {stringifyCell((it as any)[c])}
+                      </td>
+                    ))}
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        onClick={() =>
+                          setEditorOpen({
+                            mode: "edit",
+                            id,
+                            json: JSON.stringify(it, null, 2),
+                          })
+                        }
+                        className="px-2 py-1 text-xs rounded border mr-2 text-[#4EA8A1] border-[#4EA8A1] hover:bg-[#4EA8A1] hover:text-white"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => setDeletingId(id)}
+                        className="px-2 py-1 text-xs rounded border text-red-600 border-red-300 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {data && data.total > 0 && (
+        <div className="flex items-center justify-between text-xs">
+          <div className="text-gray-600">Total: {data.total.toLocaleString()}</div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setParams((p) => ({ ...p, page: Math.max(1, (p.page || 1) - 1) }))}
+              className="px-2 py-1 rounded border"
+            >
+              Prev
+            </button>
+            <span>
+              Page {params.page} / {Math.max(1, Math.ceil((data.total || 0) / (params.limit || 20)))}
+            </span>
+            <button
+              onClick={() => setParams((p) => ({ ...p, page: (p.page || 1) + 1 }))}
+              className="px-2 py-1 rounded border"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(editorOpen.mode === "create" || editorOpen.mode === "edit") && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="flex-1 bg-black/40" onClick={() => setEditorOpen({ mode: null })} />
+          <div className="w-full max-w-lg h-full bg-white border-l shadow-xl flex flex-col">
+            <div className="px-4 py-3 border-b flex items-center justify-between">
+              <h3 className="text-sm font-semibold">
+                {editorOpen.mode === "create" ? "Add Dataset Item" : "Edit Dataset Item"}
+              </h3>
+              <button className="text-xs text-gray-500" onClick={() => setEditorOpen({ mode: null })}>Close</button>
+            </div>
+            <div className="p-4 space-y-3 text-sm overflow-y-auto">
+              <p className="text-gray-600 text-xs">
+                Edit the JSON body. Include state/microlocation keys as needed.
+              </p>
+              <textarea
+                value={editorOpen.json}
+                onChange={(e) => setEditorOpen((o) => ({ ...o, json: e.target.value }))}
+                className="w-full h-[60vh] border rounded p-2 font-mono text-xs"
+              />
+              <button
+                onClick={onSave}
+                disabled={createItem.status === "pending" || patchItem.status === "pending"}
+                className="w-full h-9 bg-[#4EA8A1] text-white rounded text-xs disabled:opacity-50"
+              >
+                {createItem.status === "pending" || patchItem.status === "pending" ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletingId && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="flex-1 bg-black/40" onClick={() => setDeletingId(null)} />
+          <div className="w-full max-w-sm h-full bg-white border-l shadow-xl flex flex-col">
+            <div className="px-4 py-3 border-b flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Confirm Delete</h3>
+              <button className="text-xs text-gray-500" onClick={() => setDeletingId(null)}>Close</button>
+            </div>
+            <div className="p-4 space-y-3 text-sm">
+              <p>Delete item <span className="font-mono">{deletingId}</span>?</p>
+              <button
+                onClick={() => deleteItem.mutate(undefined, { onSuccess: () => setDeletingId(null) })}
+                disabled={deleteItem.status === "pending"}
+                className="w-full h-9 bg-red-600 text-white rounded text-xs disabled:opacity-50"
+              >
+                {deleteItem.status === "pending" ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function inferColumns(items: unknown[]): string[] {
+  if (!Array.isArray(items) || items.length === 0) return ["_id"];
+  const keys = new Set<string>();
+  for (const it of items) {
+    if (it && typeof it === "object") {
+      Object.keys(it as Record<string, unknown>)
+        .filter((k) => !k.startsWith("__"))
+        .slice(0, 12)
+        .forEach((k) => keys.add(k));
+    }
+    if (keys.size >= 12) break;
+  }
+  return Array.from(keys);
+}
+
+function stringifyCell(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}

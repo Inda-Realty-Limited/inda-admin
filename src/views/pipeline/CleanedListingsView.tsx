@@ -1,6 +1,7 @@
 import {
   useAdminCleanedListings,
   useCleanPendingListings,
+  useCleanListingsManual,
   type CleanedListingsFilters,
 } from "@/api";
 import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
@@ -30,6 +31,11 @@ export default function CleanedListingsView() {
   const { data, isLoading, isError, refetch } =
     useAdminCleanedListings(filters);
   const cleanPending = useCleanPendingListings();
+  const cleanManual = useCleanListingsManual();
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualJson, setManualJson] = useState<string>(
+    '{\n  "ids": [],\n  "options": {}\n}'
+  );
 
   const currentPage = filters.page || 1;
   const itemsPerPage = filters.limit || 20;
@@ -259,6 +265,12 @@ export default function CleanedListingsView() {
             ? "Cleaning…"
             : "Run Pending Clean"}
         </button>
+        <button
+          onClick={() => setManualOpen(true)}
+          className="px-3 py-2 bg-[#4EA8A1] hover:bg-[#3F8C86] text-white rounded-md text-sm transition-colors"
+        >
+          Manual Clean (JSON)
+        </button>
         {cleanPending.status === "pending" && (
           <span className="text-xs text-gray-500">
             Processing pending listings…
@@ -294,6 +306,56 @@ export default function CleanedListingsView() {
           onPageChange={(p) => update("page", p)}
           className="mt-6"
         />
+      )}
+
+      {manualOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div
+            className="flex-1 bg-black/40"
+            onClick={() => setManualOpen(false)}
+          />
+          <div className="w-full max-w-lg h-full bg-white border-l shadow-xl flex flex-col">
+            <div className="px-4 py-3 border-b flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Manual Clean Payload</h3>
+              <button
+                className="text-xs text-gray-500"
+                onClick={() => setManualOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-4 space-y-3 text-sm overflow-y-auto">
+              <p className="text-xs text-gray-600">
+                Provide the body for POST /admin/clean/listings. Example
+                includes ids array and options object. Consult backend for exact
+                schema.
+              </p>
+              <textarea
+                value={manualJson}
+                onChange={(e) => setManualJson(e.target.value)}
+                className="w-full h-[60vh] border rounded p-2 font-mono text-xs"
+              />
+              <button
+                onClick={() => {
+                  try {
+                    const body = manualJson ? JSON.parse(manualJson) : {};
+                    cleanManual.mutate(body, {
+                      onSuccess: () => setManualOpen(false),
+                    });
+                  } catch (e) {
+                    alert("Invalid JSON: " + (e as Error).message);
+                  }
+                }}
+                disabled={cleanManual.status === "pending"}
+                className="w-full h-9 bg-[#4EA8A1] text-white rounded text-xs disabled:opacity-50"
+              >
+                {cleanManual.status === "pending"
+                  ? "Running…"
+                  : "Run Manual Clean"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

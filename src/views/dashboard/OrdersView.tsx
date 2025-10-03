@@ -3,7 +3,7 @@ import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
 import { formatPrice } from "@/utils";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { CiSearch } from "react-icons/ci";
 import { FiCopy } from "react-icons/fi";
 
@@ -27,6 +27,23 @@ export default function OrdersView() {
       ? currentPage * itemsPerPage // unknown if more exist
       : (currentPage - 1) * itemsPerPage + length;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+
+  const handleView = useCallback(
+    (row: Record<string, unknown>) => {
+      const userId = typeof row["userId"] === "string" ? row["userId"] : null;
+      const listingId =
+        typeof row["listingId"] === "string" ? row["listingId"] : null;
+      if (userId) {
+        const groupId = `${userId}:${listingId || "null"}`;
+        router.push(`/dashboard/orders/${groupId}`);
+      }
+    },
+    [router]
+  );
+
+  const handleCancel = useCallback((row: Record<string, unknown>) => {
+    console.log("Cancel order", row);
+  }, []);
 
   const columns: TableColumn[] = useMemo(
     () => [
@@ -259,21 +276,8 @@ export default function OrdersView() {
         ),
       },
     ],
-    [copiedRef]
+    [copiedRef, handleCancel, handleView]
   );
-
-  function handleView(row: Record<string, unknown>) {
-    const userId = typeof row["userId"] === "string" ? row["userId"] : null;
-    const listingId =
-      typeof row["listingId"] === "string" ? row["listingId"] : null;
-    if (userId) {
-      const groupId = `${userId}:${listingId || "null"}`;
-      router.push(`/dashboard/orders/${groupId}`);
-    }
-  }
-  function handleCancel(row: Record<string, unknown>) {
-    console.log("Cancel order", row);
-  }
 
   return (
     <div className="space-y-4">

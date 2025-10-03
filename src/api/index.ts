@@ -1,3 +1,11 @@
+import type {
+  QuestionnaireDetailResponse,
+  QuestionnaireFilters,
+  QuestionnaireListResponse,
+  QuestionnaireStats,
+  QuestionnaireStatus,
+  QuestionnaireUserSubmissions,
+} from "@/types/questionnaire";
 import {
   keepPreviousData,
   useMutation,
@@ -99,7 +107,7 @@ type LoginResponse = {
   admin: AdminProfile;
 };
 export async function adminLogin(email: string, password: string) {
-  const { data } = await adminApi.post<LoginResponse>("/auth/login", {
+  const { data } = await adminApi.post<LoginResponse>("/login", {
     email,
     password,
   });
@@ -114,17 +122,17 @@ export async function adminRegister(body: {
   password: string;
   isSuperAdmin?: boolean;
 }) {
-  const { data } = await adminApi.post("/auth/register", body);
+  const { data } = await adminApi.post("/register", body);
   return data;
 }
 
 export async function adminVerifyOtp(email: string, code: string) {
-  const { data } = await adminApi.post("/auth/verify-otp", { email, code });
+  const { data } = await adminApi.post("/verify-otp", { email, code });
   return data;
 }
 
 export async function adminRequestPasswordReset(email: string) {
-  const { data } = await adminApi.post("/auth/request-password-reset", {
+  const { data } = await adminApi.post("/request-password-reset", {
     email,
   });
   return data;
@@ -135,7 +143,7 @@ export async function adminResetPassword(
   code: string,
   newPassword: string
 ) {
-  const { data } = await adminApi.post("/auth/reset-password", {
+  const { data } = await adminApi.post("/reset-password", {
     email,
     code,
     newPassword,
@@ -252,6 +260,67 @@ export function useAdminPayment(id?: string) {
   });
 }
 
+// Payment Reconciliation
+export type ReconciliationResult = {
+  reference: string;
+  userId?: string;
+  listingId?: string;
+  plan?: string;
+  amountNGN?: number;
+  beforeStatus: string;
+  afterStatus: string;
+  verificationStatus: string;
+  paidAt?: string;
+  emailSent?: boolean;
+  action: string;
+  error?: string;
+};
+
+export type ReconciliationResponse = {
+  date: {
+    input: string;
+    start: string;
+    end: string;
+  };
+  dryRun: boolean;
+  totals: {
+    examined: number;
+    markedSuccess: number;
+    updatedOther: number;
+    unchanged: number;
+    emailSent: number;
+    errors: number;
+  };
+  results: ReconciliationResult[];
+};
+
+export type ReconcilePayload = {
+  date: string;
+  statuses?: string[];
+  plan?: string;
+  userId?: string;
+  dryRun?: boolean;
+};
+
+type ReconcileApiResponse = { status: string; data: ReconciliationResponse };
+
+export function useReconcilePayments() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: ReconcilePayload) => {
+      const { data } = await adminApi.post<ReconcileApiResponse>(
+        "/payments/reconcile",
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      // Invalidate payments list after reconciliation
+      queryClient.invalidateQueries({ queryKey: ["admin", "payments"] });
+    },
+  });
+}
+
 // ---- Orders ----
 type OrdersResponse = {
   status: string;
@@ -285,6 +354,210 @@ export function useAdminOrderGroup(groupId?: string) {
   });
 }
 
+// ---- Questionnaires ----
+type QuestionnaireStatsApiResponse = {
+  status: string | number;
+  data: QuestionnaireStats;
+};
+export function useAdminQuestionnaireStats() {
+  return useQuery({
+    queryKey: ["admin", "questionnaires", "stats"],
+    queryFn: async () => {
+      const { data } = await adminApi.get<QuestionnaireStatsApiResponse>(
+        "/questionnaires/stats"
+      );
+      return data.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+type QuestionnaireListApiResponse = {
+  status: string | number;
+  data: QuestionnaireListResponse;
+};
+export function useAdminQuestionnaires(filters: QuestionnaireFilters) {
+  return useQuery({
+    queryKey: ["admin", "questionnaires", filters],
+    queryFn: async () => {
+      const { data } = await adminApi.get<QuestionnaireListApiResponse>(
+        "/questionnaires",
+        {
+          params: filters,
+        }
+      );
+      return data.data;
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+type QuestionnaireDetailApiResponse = {
+  status: string | number;
+  data: QuestionnaireDetailResponse;
+};
+export function useAdminQuestionnaire(id?: string) {
+  return useQuery({
+    queryKey: ["admin", "questionnaire", id],
+    queryFn: async () => {
+      const { data } = await adminApi.get<QuestionnaireDetailApiResponse>(
+        `/questionnaires/${id}`
+      );
+      return data.data;
+    },
+    enabled: !!id,
+  });
+}
+
+type QuestionnaireUserApiResponse = {
+  status: string | number;
+  data: QuestionnaireUserSubmissions;
+};
+export function useAdminQuestionnairesByUser(userId?: string) {
+  return useQuery({
+    queryKey: ["admin", "questionnaires", "user", userId],
+    queryFn: async () => {
+      const { data } = await adminApi.get<QuestionnaireUserApiResponse>(
+        `/questionnaires/user/${userId}`
+      );
+      return data.data;
+    },
+    enabled: !!userId,
+  });
+}
+
+export function getQuestionnaireExportUrl(filters: QuestionnaireFilters = {}) {
+  const base = adminApi.defaults.baseURL ?? `${BASE_URL}/admin`;
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    params.append(key, String(value));
+  });
+
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("admin_token");
+    if (token) params.append("token", token);
+  }
+
+  const query = params.toString();
+  return query
+    ? `${base}/questionnaires/export?${query}`
+    : `${base}/questionnaires/export`;
+}
+
+type QuestionnaireMutationResponse = {
+  status: string | number;
+  data: QuestionnaireDetailResponse;
+};
+
+type UpdateQuestionnaireStatusVariables = {
+  id: string;
+  status: QuestionnaireStatus;
+  notes?: string;
+  userId?: string;
+};
+export function useUpdateQuestionnaireStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...body }: UpdateQuestionnaireStatusVariables) => {
+      const { data } = await adminApi.patch<QuestionnaireMutationResponse>(
+        `/questionnaires/${id}/status`,
+        body
+      );
+      return data.data;
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
+      qc.invalidateQueries({ queryKey: ["admin", "questionnaires", "stats"] });
+      qc.invalidateQueries({
+        queryKey: ["admin", "questionnaire", variables.id],
+      });
+      if (variables.userId) {
+        qc.invalidateQueries({
+          queryKey: ["admin", "questionnaires", "user", variables.userId],
+        });
+      }
+    },
+  });
+}
+
+type UpdateQuestionnaireVariables = {
+  id: string;
+  payload: Record<string, unknown>;
+  userId?: string;
+};
+export function useUpdateQuestionnaire() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, payload }: UpdateQuestionnaireVariables) => {
+      const { data } = await adminApi.patch<QuestionnaireMutationResponse>(
+        `/questionnaires/${id}`,
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
+      qc.invalidateQueries({ queryKey: ["admin", "questionnaires", "stats"] });
+      qc.invalidateQueries({
+        queryKey: ["admin", "questionnaire", variables.id],
+      });
+      if (variables.userId) {
+        qc.invalidateQueries({
+          queryKey: ["admin", "questionnaires", "user", variables.userId],
+        });
+      }
+    },
+  });
+}
+
+type CancelQuestionnaireVariables = {
+  id: string;
+  reason?: string;
+  userId?: string;
+};
+export function useCancelQuestionnaire() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, reason }: CancelQuestionnaireVariables) => {
+      const config = reason ? { data: { reason } } : undefined;
+      const { data } = await adminApi.delete<QuestionnaireMutationResponse>(
+        `/questionnaires/${id}`,
+        config
+      );
+      return data.data;
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
+      qc.invalidateQueries({ queryKey: ["admin", "questionnaires", "stats"] });
+      qc.invalidateQueries({
+        queryKey: ["admin", "questionnaire", variables.id],
+      });
+      if (variables.userId) {
+        qc.invalidateQueries({
+          queryKey: ["admin", "questionnaires", "user", variables.userId],
+        });
+      }
+    },
+  });
+}
+
+// Lookup listing by URL
+export function useAdminListingByUrl(url?: string) {
+  return useQuery({
+    queryKey: ["admin", "listings", "by-url", url],
+    queryFn: async () => {
+      const { data } = await adminApi.get<{
+        status?: string;
+        data?: Record<string, unknown> | null;
+      }>("/listings/by-url", { params: { url } });
+      return (data?.data ?? null) as Record<string, unknown> | null;
+    },
+    enabled: !!url,
+  });
+}
+
 // ---- Microlocations ----
 export type MicrolocationFilters = {
   q?: string;
@@ -306,11 +579,27 @@ export function useAdminMicrolocations(filters: MicrolocationFilters) {
   return useQuery({
     queryKey: ["admin", "microlocations", filters],
     queryFn: async () => {
-      const { data } = await adminApi.get<MicrolocationsResponse>(
-        "/microlocations",
-        { params: filters }
-      );
-      return data.data;
+      try {
+        const { data } = await adminApi.get<MicrolocationsResponse>(
+          "/microlocations",
+          { params: filters }
+        );
+        return data.data;
+      } catch (err) {
+        const e = err as AxiosError;
+        if (e.response?.status === 404) {
+          const limitVal = filters.limit ?? 20;
+          return {
+            items: [],
+            total: 0,
+            page: filters.page ?? 1,
+            limit: limitVal,
+            pageSize: limitVal,
+            pages: 1,
+          } as PageList<AnyMicrolocation>;
+        }
+        throw err;
+      }
     },
     placeholderData: keepPreviousData,
   });
@@ -370,10 +659,18 @@ export function useAdminMicrolocationMeta() {
   return useQuery({
     queryKey: ["admin", "microlocations", "meta"],
     queryFn: async () => {
-      const { data } = await adminApi.get<MicrolocationMetaResponse>(
-        "/microlocations-meta"
-      );
-      return data.data;
+      try {
+        const { data } = await adminApi.get<MicrolocationMetaResponse>(
+          "/microlocations-meta"
+        );
+        return data.data;
+      } catch (err) {
+        const e = err as AxiosError;
+        if (e.response?.status === 404) {
+          return { states: [], macroLocations: [], clusterTypes: [], tags: [] };
+        }
+        throw err;
+      }
     },
     staleTime: 5 * 60_000,
   });
@@ -393,10 +690,18 @@ export function useAdminMicrolocationStats() {
   return useQuery({
     queryKey: ["admin", "microlocations", "stats"],
     queryFn: async () => {
-      const { data } = await adminApi.get<MicrolocationStatsResponse>(
-        "/microlocations-stats"
-      );
-      return data.data;
+      try {
+        const { data } = await adminApi.get<MicrolocationStatsResponse>(
+          "/microlocations-stats"
+        );
+        return data.data;
+      } catch (err) {
+        const e = err as AxiosError;
+        if (e.response?.status === 404) {
+          return { total: 0 } as MicrolocationStats;
+        }
+        throw err;
+      }
     },
     refetchInterval: 60_000,
   });
@@ -444,7 +749,7 @@ export function useBulkUpdateMicrolocations() {
   return useMutation({
     mutationFn: async (payload: {
       ids: string[];
-      set?: any;
+      set?: Record<string, unknown>;
       unset?: string[];
     }) => {
       const { data } = await adminApi.patch("/microlocations-bulk", payload);
@@ -638,6 +943,21 @@ export function useCleanPendingListings() {
   });
 }
 
+// Manual clean selected listings
+export function useCleanListingsManual() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const { data } = await adminApi.post("/clean/listings", body);
+      return data?.data ?? data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "cleaned-listings"] });
+      qc.invalidateQueries({ queryKey: ["admin", "listings"] });
+    },
+  });
+}
+
 // ---- Computed Listings ----
 export type ComputedListingsFilters = {
   q?: string;
@@ -658,11 +978,23 @@ export function useAdminComputedListings(filters: ComputedListingsFilters) {
   return useQuery({
     queryKey: ["admin", "computed-listings", filters],
     queryFn: async () => {
-      const { data } = await adminApi.get<any>("/computed-listings", {
+      const { data } = await adminApi.get<
+        | ComputedListingsResponse
+        | {
+            status?: string;
+            data?: unknown;
+            pagination?: {
+              page?: number;
+              limit?: number;
+              total?: number;
+              pages?: number;
+            };
+            items?: unknown[]; // alternate root shape
+          }
+      >("/computed-listings", {
         params: filters,
       });
-
-      const raw: any = data;
+      const raw = data as any; // internal flexible parsing
 
       // Shape 1: { status, data: { items, total, page, limit, pages } }
       if (raw?.data?.items && Array.isArray(raw.data.items)) {
@@ -753,6 +1085,239 @@ export function useBatchComputeListings() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "computed-listings"] });
       qc.invalidateQueries({ queryKey: ["admin", "listings"] });
+    },
+  });
+}
+
+// -----------------------------
+// Runtime Config (Admin)
+// -----------------------------
+
+export type RuntimeConfig = Record<string, unknown>;
+type RuntimeConfigResponse = { status: string; data: RuntimeConfig };
+
+export function useAdminRuntimeConfig() {
+  return useQuery({
+    queryKey: ["admin", "runtime-config"],
+    queryFn: async () => {
+      const { data } = await adminApi.get<RuntimeConfigResponse>(
+        "/runtime-config"
+      );
+      return data.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function usePatchRuntimeConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (patch: Record<string, unknown>) => {
+      const { data } = await adminApi.patch("/runtime-config", patch);
+      return data?.data ?? data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "runtime-config"] });
+    },
+  });
+}
+
+// -----------------------------
+// Microlocation Datasets (FMV / Appreciation / Yields)
+// -----------------------------
+
+export type MicrolocationDatasetType = "fmv" | "appreciation" | "yields";
+export type MicrolocationDatasetItem = Record<string, unknown>;
+
+type MicrolocationDatasetListResponse = {
+  status: string;
+  data:
+    | PageList<MicrolocationDatasetItem>
+    | {
+        items: MicrolocationDatasetItem[];
+        total?: number;
+        page?: number;
+        limit?: number;
+      };
+};
+
+export function useMicrolocationDataset(
+  dataset: MicrolocationDatasetType,
+  params: {
+    page?: number;
+    limit?: number;
+    q?: string;
+    state?: string;
+    microlocation?: string;
+    sort?: string;
+  }
+) {
+  return useQuery({
+    queryKey: ["admin", "microlocations-dataset", dataset, params],
+    queryFn: async () => {
+      try {
+        const basePath =
+          dataset === "fmv"
+            ? "/microlocation-fmv"
+            : dataset === "appreciation"
+            ? "/microlocation-appreciation"
+            : "/microlocation-yields";
+        const { data } = await adminApi.get<MicrolocationDatasetListResponse>(
+          basePath,
+          { params }
+        );
+        const raw: any = data?.data;
+        if (raw?.items && Array.isArray(raw.items)) {
+          const limitVal = (raw.limit ??
+            params.limit ??
+            raw.items.length) as number;
+          const totalVal = (raw.total ?? raw.items.length) as number;
+          return {
+            items: raw.items,
+            total: totalVal,
+            page: (raw.page ?? params.page ?? 1) as number,
+            limit: limitVal,
+            pageSize: limitVal,
+            pages: Math.max(1, Math.ceil(totalVal / (limitVal || 1))),
+          } as PageList<MicrolocationDatasetItem>;
+        }
+        return raw as PageList<MicrolocationDatasetItem>;
+      } catch (err) {
+        const e = err as AxiosError;
+        if (e.response?.status === 404) {
+          const limitVal = params.limit ?? 20;
+          return {
+            items: [],
+            total: 0,
+            page: params.page ?? 1,
+            limit: limitVal,
+            pageSize: limitVal,
+            pages: 1,
+          } as PageList<MicrolocationDatasetItem>;
+        }
+        throw err;
+      }
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCreateMicrolocationDatasetItem(
+  dataset: MicrolocationDatasetType
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const basePath =
+        dataset === "fmv"
+          ? "/microlocation-fmv"
+          : dataset === "appreciation"
+          ? "/microlocation-appreciation"
+          : "/microlocation-yields";
+      const { data } = await adminApi.post(basePath, body);
+      return data?.data ?? data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: ["admin", "microlocations-dataset", dataset],
+      });
+    },
+  });
+}
+
+export function usePatchMicrolocationDatasetItem(
+  dataset: MicrolocationDatasetType,
+  id: string
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (patch: Record<string, unknown>) => {
+      const basePath =
+        dataset === "fmv"
+          ? "/microlocation-fmv"
+          : dataset === "appreciation"
+          ? "/microlocation-appreciation"
+          : "/microlocation-yields";
+      const { data } = await adminApi.patch(`${basePath}/${id}`, patch);
+      return data?.data ?? data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: ["admin", "microlocations-dataset", dataset],
+      });
+    },
+  });
+}
+
+export function useDeleteMicrolocationDatasetItem(
+  dataset: MicrolocationDatasetType,
+  id: string
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const basePath =
+        dataset === "fmv"
+          ? "/microlocation-fmv"
+          : dataset === "appreciation"
+          ? "/microlocation-appreciation"
+          : "/microlocation-yields";
+      const { data } = await adminApi.delete(`${basePath}/${id}`);
+      return data?.data ?? data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: ["admin", "microlocations-dataset", dataset],
+      });
+    },
+  });
+}
+
+// -----------------------------
+// Computed Listings: extras
+// -----------------------------
+
+// Get a computed listing by URL (exact)
+export function useAdminComputedByUrl(url?: string) {
+  return useQuery({
+    queryKey: ["admin", "computed-listings", "by-url", url],
+    queryFn: async () => {
+      const { data } = await adminApi.get<{
+        status?: string;
+        data?: Record<string, unknown> | null;
+      }>("/computed-listings/by-url", { params: { url } });
+      return (data?.data ?? null) as Record<string, unknown> | null;
+    },
+    enabled: !!url,
+  });
+}
+
+// Patch override fields on a computed listing
+export function usePatchComputedListing(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (patch: Record<string, unknown>) => {
+      const { data } = await adminApi.patch(`/computed-listings/${id}`, patch);
+      return data?.data ?? data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "computed-listings"] });
+    },
+  });
+}
+
+// Delete AI report attached to a computed listing
+export function useDeleteComputedAiReport(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await adminApi.delete(
+        `/computed-listings/${id}/ai-report`
+      );
+      return data?.data ?? data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "computed-listings"] });
     },
   });
 }

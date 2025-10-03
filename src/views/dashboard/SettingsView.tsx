@@ -1,10 +1,17 @@
 import Head from "next/head";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useAdminRuntimeConfig, usePatchRuntimeConfig } from "@/api";
 
 export default function SettingsView() {
   const [tab, setTab] = useState<
-    "general" | "security" | "billing" | "integrations"
+    "general" | "security" | "billing" | "integrations" | "runtime"
   >("general");
+  const { data: runtimeConfig } = useAdminRuntimeConfig();
+  const patchRuntime = usePatchRuntimeConfig();
+  const [runtimeEditor, setRuntimeEditor] = useState<string>("");
+  useEffect(() => {
+    if (runtimeConfig) setRuntimeEditor(JSON.stringify(runtimeConfig, null, 2));
+  }, [runtimeConfig]);
 
   return (
     <div className="space-y-6">
@@ -27,6 +34,7 @@ export default function SettingsView() {
           { key: "security", label: "Security" },
           { key: "billing", label: "Billing" },
           { key: "integrations", label: "Integrations" },
+          { key: "runtime", label: "Runtime Config" },
         ].map((t) => (
           <button
             key={t.key}
@@ -269,6 +277,50 @@ export default function SettingsView() {
             >
               Create Endpoint
             </button>
+          </div>
+        </section>
+      )}
+
+      {tab === "runtime" && (
+        <section className="space-y-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-5">
+            <h2 className="text-sm font-semibold mb-4 tracking-wide text-gray-700">
+              Runtime Config (JSON)
+            </h2>
+            <div className="space-y-3">
+              <p className="text-xs text-gray-600">
+                Edit the runtime configuration as JSON. Be careful—changes take effect immediately for new requests.
+              </p>
+              <textarea
+                value={runtimeEditor}
+                onChange={(e) => setRuntimeEditor(e.target.value)}
+                className="w-full h-[60vh] border rounded p-2 font-mono text-xs"
+              />
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    try {
+                      const body = runtimeEditor ? JSON.parse(runtimeEditor) : {};
+                      patchRuntime.mutate(body as any);
+                    } catch (e) {
+                      alert("Invalid JSON: " + (e as Error).message);
+                    }
+                  }}
+                  disabled={patchRuntime.status === "pending"}
+                  className="px-4 py-2 bg-[#4EA8A1] text-white rounded-md text-sm disabled:opacity-50"
+                >
+                  {patchRuntime.status === "pending" ? "Saving…" : "Save Config"}
+                </button>
+                <button
+                  onClick={() =>
+                    setRuntimeEditor(JSON.stringify(runtimeConfig ?? {}, null, 2))
+                  }
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       )}

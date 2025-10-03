@@ -14,46 +14,6 @@ import {
   FiZap,
 } from "react-icons/fi";
 
-// Map API data to the cards structure
-function toCards(data: ReturnType<typeof useAdminOverview>["data"]) {
-  const d = data;
-  return [
-    {
-      name: "Properties",
-      amount: d?.properties?.total ?? 0,
-      crease:
-        d?.properties?.addedThisWeek != null
-          ? `+${d?.properties?.addedThisWeek} this week`
-          : "",
-    },
-    { name: "Developers", amount: d?.developers?.total ?? 0, crease: "" },
-    { name: "Agents", amount: d?.agents?.total ?? 0, crease: "" },
-    {
-      name: "Claimed Profiles",
-      amount: d?.claimedProfiles?.total ?? 0,
-      crease: "",
-    },
-    {
-      name: "Pending Requests",
-      amount: d?.pendingRequests?.total ?? 0,
-      crease: "",
-    },
-    {
-      name: "Users",
-      amount: d?.users?.total ?? 0,
-      crease:
-        d?.users?.addedThisWeek != null
-          ? `+${d?.users?.addedThisWeek} this week`
-          : "",
-    },
-    {
-      name: "New Sales Requests",
-      amount: d?.newSalesRequests?.total ?? 0,
-      crease: "",
-    },
-  ];
-}
-
 export default function OverviewView() {
   const [today, setToday] = useState("");
   useEffect(() => {
@@ -121,25 +81,6 @@ export default function OverviewView() {
     ];
   }, [data]);
 
-  // Derived figures for additional panels
-  const totals = useMemo(
-    () => ({
-      properties: data?.properties?.total ?? 0,
-      users: data?.users?.total ?? 0,
-      agents: data?.agents?.total ?? 0,
-      pending: data?.pendingRequests?.total ?? 0,
-      sales: data?.newSalesRequests?.total ?? 0,
-      developers: data?.developers?.total ?? 0,
-      claimed: data?.claimedProfiles?.total ?? 0,
-    }),
-    [data]
-  );
-
-  const sumAll = useMemo(
-    () => Object.values(totals).reduce((a, b) => a + b, 0),
-    [totals]
-  );
-
   const recentActivity = useMemo(() => {
     const items = data?.recentActivity ?? [];
     return items.slice(0, 5).map((i) => {
@@ -201,20 +142,6 @@ export default function OverviewView() {
         return <div className="w-3 h-3 rounded-full bg-[#4EA8A1]" />;
     }
   }, []);
-
-  type Tab = "Listings" | "Users" | "Sales" | "Profiles" | "General";
-
-  const getCategory = useCallback(
-    (label: string): Exclude<Tab, "All"> | "General" => {
-      const l = label.toLowerCase();
-      if (l.includes("property")) return "Listings";
-      if (l.includes("user")) return "Users";
-      if (l.includes("sales")) return "Sales";
-      if (l.includes("profile")) return "Profiles";
-      return "General";
-    },
-    []
-  );
 
   const raItems = recentActivity;
   return (

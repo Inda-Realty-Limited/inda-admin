@@ -1,11 +1,12 @@
 import { useAdminPayments } from "@/api";
+import PaymentReconciliationModal from "@/components/PaymentReconciliationModal";
 import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
 import { formatPrice } from "@/utils";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { CiSearch } from "react-icons/ci";
-import { FiCopy } from "react-icons/fi";
+import { FiCopy, FiRefreshCw } from "react-icons/fi";
 
 export default function PaymentsView() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function PaymentsView() {
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
+  const [showReconciliation, setShowReconciliation] = useState(false);
   const { data, isLoading, isError, refetch } = useAdminPayments(params);
 
   function update<K extends keyof typeof params>(
@@ -39,6 +41,18 @@ export default function PaymentsView() {
   const itemsPerPage = params.limit || 20;
   const totalItems = data?.total || 0;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  const handleView = useCallback(
+    (row: Record<string, unknown>) => {
+      const id = typeof row["_id"] === "string" ? row["_id"] : undefined;
+      if (id) router.push(`/dashboard/transactions/${id}`);
+    },
+    [router]
+  );
+
+  const handleRefund = useCallback((row: Record<string, unknown>) => {
+    console.log("Refund payment", row);
+  }, []);
 
   const columns: TableColumn[] = useMemo(
     () => [
@@ -251,16 +265,8 @@ export default function PaymentsView() {
         ),
       },
     ],
-    []
+    [copiedRef, handleRefund, handleView]
   );
-
-  function handleView(row: Record<string, unknown>) {
-    const id = typeof row["_id"] === "string" ? row["_id"] : undefined;
-    if (id) router.push(`/dashboard/transactions/${id}`);
-  }
-  function handleRefund(row: Record<string, unknown>) {
-    console.log("Refund payment", row);
-  }
 
   return (
     <div className="space-y-4">
@@ -275,6 +281,13 @@ export default function PaymentsView() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            className="px-4 py-2 bg-white border-2 border-[#4EA8A1] text-[#4EA8A1] rounded-lg hover:bg-[#4EA8A1] hover:text-white text-sm font-bold transition-all flex items-center gap-2"
+            onClick={() => setShowReconciliation(true)}
+          >
+            <FiRefreshCw size={16} />
+            Reconcile
+          </button>
           <button
             className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#4EA8A1]/90 text-sm"
             onClick={() => refetch()}
@@ -436,6 +449,16 @@ export default function PaymentsView() {
           itemsPerPage={itemsPerPage}
           onPageChange={(p) => update("page", p)}
           className="mt-6"
+        />
+      )}
+
+      {showReconciliation && (
+        <PaymentReconciliationModal
+          onClose={() => setShowReconciliation(false)}
+          onSuccess={() => {
+            setShowReconciliation(false);
+            refetch();
+          }}
         />
       )}
     </div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";
 import {
+  FiClipboard,
   FiCode,
   FiCreditCard,
   FiDatabase,
@@ -54,6 +55,12 @@ const navItems: NavItem[] = [
     label: "Orders",
     href: "/dashboard/orders",
     icon: FiShoppingCart,
+    section: "core",
+  },
+  {
+    label: "Due Diligence",
+    href: "/dashboard/questionnaires",
+    icon: FiClipboard,
     section: "core",
   },
   // Pipeline

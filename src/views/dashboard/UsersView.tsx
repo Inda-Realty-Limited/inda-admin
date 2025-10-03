@@ -2,7 +2,7 @@ import { useAdminUsers } from "@/api";
 import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { CiSearch } from "react-icons/ci";
 
 export default function UsersView() {
@@ -31,6 +31,17 @@ export default function UsersView() {
   const itemsPerPage = filters.limit || 20;
   const totalItems = data?.total || 0;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  // Action handlers
+  const handleEdit = useCallback((row: Record<string, unknown>) => {
+    console.log("Edit user:", row);
+    // Implement edit functionality
+  }, []);
+
+  const handleToggleBlock = useCallback((row: Record<string, unknown>) => {
+    console.log("Toggle block user:", row);
+    // Implement block/unblock functionality
+  }, []);
 
   // Define table columns
   const columns: TableColumn[] = useMemo(
@@ -176,19 +187,8 @@ export default function UsersView() {
         ),
       },
     ],
-    []
+    [handleEdit, handleToggleBlock, router]
   );
-
-  // Action handlers
-  const handleEdit = (row: Record<string, unknown>) => {
-    console.log("Edit user:", row);
-    // Implement edit functionality
-  };
-
-  const handleToggleBlock = (row: Record<string, unknown>) => {
-    console.log("Toggle block user:", row);
-    // Implement block/unblock functionality
-  };
 
   return (
     <div className="space-y-4">

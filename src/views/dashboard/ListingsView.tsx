@@ -3,7 +3,7 @@ import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
 import { formatPrice } from "@/utils";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { CiSearch } from "react-icons/ci";
 
 export default function ListingsView() {
@@ -31,6 +31,17 @@ export default function ListingsView() {
   const itemsPerPage = filters.limit || 20;
   const totalItems = data?.total || 0;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  // Action handlers
+  const handleFlag = useCallback((row: Record<string, unknown>) => {
+    console.log("Flag listing:", row);
+    // Implement flag functionality
+  }, []);
+
+  const handleDelete = useCallback((row: Record<string, unknown>) => {
+    console.log("Delete listing:", row);
+    // Implement delete functionality
+  }, []);
 
   // Define table columns based on real API data structure
   const columns: TableColumn[] = useMemo(
@@ -246,19 +257,8 @@ export default function ListingsView() {
         ),
       },
     ],
-    []
+    [handleDelete, handleFlag, router]
   );
-
-  // Action handlers
-  const handleFlag = (row: Record<string, unknown>) => {
-    console.log("Flag listing:", row);
-    // Implement flag functionality
-  };
-
-  const handleDelete = (row: Record<string, unknown>) => {
-    console.log("Delete listing:", row);
-    // Implement delete functionality
-  };
 
   return (
     <div className="space-y-4">

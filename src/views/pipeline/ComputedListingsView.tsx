@@ -2,6 +2,9 @@ import {
   useAdminComputedListings,
   useBatchComputeListings,
   useComputeListing,
+  useAdminComputedByUrl,
+  usePatchComputedListing,
+  useDeleteComputedAiReport,
   type ComputedListingsFilters,
 } from "@/api";
 import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
@@ -24,6 +27,11 @@ export default function ComputedListingsView() {
     id?: string;
     minScore?: number;
   }>({});
+  const [lookupUrl, setLookupUrl] = useState<string>("");
+  const [overrideEditor, setOverrideEditor] = useState<{
+    id?: string;
+    json?: string;
+  } | null>(null);
 
   function update<K extends keyof ComputedListingsFilters>(
     key: K,
@@ -40,6 +48,11 @@ export default function ComputedListingsView() {
     useAdminComputedListings(filters);
   const computeSingle = useComputeListing();
   const computeBatch = useBatchComputeListings();
+  const { data: byUrlData, refetch: refetchByUrl } = useAdminComputedByUrl(
+    lookupUrl || undefined
+  );
+  const patchOverride = usePatchComputedListing(overrideEditor?.id || "");
+  const deleteAiReport = useDeleteComputedAiReport(overrideEditor?.id || "");
 
   const currentPage = filters.page || 1;
   const itemsPerPage = filters.limit || 20;
@@ -103,6 +116,33 @@ export default function ComputedListingsView() {
             onClick={() => console.log("View computed", row)}
           >
             View
+          </TableButton>
+          <TableButton
+            size="sm"
+            variant="primary"
+            onClick={() => {
+              const id =
+                typeof row["_id"] === "string" ? (row["_id"] as string) : "";
+              const minimal = Object.fromEntries(
+                Object.entries(row).filter(([k]) =>
+                  ["_id", "listingUrl", "indaScore", "override"].includes(k)
+                )
+              );
+              setOverrideEditor({ id, json: JSON.stringify(minimal, null, 2) });
+            }}
+          >
+            Override
+          </TableButton>
+          <TableButton
+            size="sm"
+            variant="danger"
+            onClick={() => {
+              const id =
+                typeof row["_id"] === "string" ? (row["_id"] as string) : "";
+              setOverrideEditor({ id, json: "" });
+            }}
+          >
+            Delete AI
           </TableButton>
         </div>
       ),
@@ -207,6 +247,37 @@ export default function ComputedListingsView() {
           >
             Advanced
           </button>
+        </div>
+        <div className="grid md:grid-cols-5 gap-3 items-end">
+          <div className="flex flex-col gap-1 md:col-span-3">
+            <label className="text-xs font-medium text-gray-600">
+              Find by URL
+            </label>
+            <input
+              value={lookupUrl}
+              onChange={(e) => setLookupUrl(e.target.value)}
+              className="h-9 border rounded px-2 text-sm"
+              placeholder="https://..."
+            />
+          </div>
+          <div className="flex flex-col gap-1 md:col-span-1">
+            <button
+              onClick={() => refetchByUrl()}
+              disabled={!lookupUrl}
+              className="h-9 bg-[#4EA8A1] hover:bg-[#3F8C86] text-white rounded text-sm disabled:opacity-50"
+            >
+              Lookup
+            </button>
+          </div>
+          {byUrlData && (
+            <div className="md:col-span-5 text-xs text-gray-700">
+              <div className="p-2 rounded border bg-gray-50 overflow-x-auto">
+                <pre className="whitespace-pre-wrap">
+                  {JSON.stringify(byUrlData, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -424,6 +495,82 @@ export default function ComputedListingsView() {
           onPageChange={(p) => update("page", p)}
           className="mt-6"
         />
+      )}
+
+      {overrideEditor && (
+        <div className="fixed inset-0 z-50 flex">
+          <div
+            className="flex-1 bg-black/40"
+            onClick={() => setOverrideEditor(null)}
+          />
+          <div className="w-full max-w-lg h-full bg-white border-l shadow-xl flex flex-col">
+            <div className="px-4 py-3 border-b flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Override / AI Report</h3>
+              <button
+                className="text-xs text-gray-500"
+                onClick={() => setOverrideEditor(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-4 space-y-3 text-sm overflow-y-auto">
+              <p className="text-xs text-gray-600">
+                Edit override fields (e.g. overrideScore, flags). Leave blank
+                and click Delete AI to remove the AI report.
+              </p>
+              <textarea
+                value={overrideEditor.json}
+                onChange={(e) =>
+                  setOverrideEditor((o) =>
+                    o ? { ...o, json: e.target.value } : o
+                  )
+                }
+                className="w-full h-[60vh] border rounded p-2 font-mono text-xs"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    try {
+                      const body = overrideEditor?.json
+                        ? JSON.parse(overrideEditor.json)
+                        : {};
+                      if (!overrideEditor?.id) return;
+                      patchOverride.mutate(body, {
+                        onSuccess: () => setOverrideEditor(null),
+                      });
+                    } catch (e) {
+                      alert("Invalid JSON: " + (e as Error).message);
+                    }
+                  }}
+                  disabled={
+                    !overrideEditor?.id || patchOverride.status === "pending"
+                  }
+                  className="px-3 py-2 bg-[#4EA8A1] text-white rounded text-sm disabled:opacity-50"
+                >
+                  {patchOverride.status === "pending"
+                    ? "Saving…"
+                    : "Save Override"}
+                </button>
+                <button
+                  onClick={() =>
+                    overrideEditor?.id &&
+                    deleteAiReport.mutate(undefined, {
+                      onSuccess: () => setOverrideEditor(null),
+                    })
+                  }
+                  disabled={
+                    !overrideEditor?.id || deleteAiReport.status === "pending"
+                  }
+                  className="px-3 py-2 bg-red-600 text-white rounded text-sm disabled:opacity-50"
+                >
+                  {deleteAiReport.status === "pending"
+                    ? "Deleting…"
+                    : "Delete AI Report"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
