@@ -1,4 +1,5 @@
 import { useAdminListings, type ListingFilters } from "@/api";
+import CreateListingModal from "@/components/CreateListingModal";
 import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
 import { formatPrice } from "@/utils";
 import Head from "next/head";
@@ -13,6 +14,7 @@ export default function ListingsView() {
     limit: 20,
     sort: "-createdAt",
   });
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const { data, isLoading, isError, refetch } = useAdminListings(filters);
 
   function update<K extends keyof ListingFilters>(
@@ -261,84 +263,97 @@ export default function ListingsView() {
   );
 
   return (
-    <div className="space-y-4">
-      <Head>
-        <title>Listings — Inda Admin</title>
-      </Head>
-      <div className="flex items-start justify-between">
+    <>
+      <div className="space-y-4">
+        <Head>
+          <title>Listings — Inda Admin</title>
+        </Head>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">All Listings</h1>
+            <p className="text-sm text-gray-600 mt-1">
+              Manage and review all property listings in the system
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#4EA8A1]/90 transition-colors text-sm">
+              Export Data
+            </button>
+            <button
+              className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#3F8C86] transition-colors text-sm"
+              onClick={() => setIsCreateOpen(true)}
+            >
+              Add Listing
+            </button>
+            <button
+              onClick={() => refetch()}
+              className="text-sm text-[#4EA8A1] hover:text-[#4EA8A1]/80"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Search Filter */}
+        <div className="border border-[#4EA8A1] text-[#4EA8A1] flex items-center h-11 rounded-lg px-3">
+          <CiSearch size={18} className="mr-2" />
+          <input
+            className="w-full border-none focus:outline-none placeholder:text-[#4EA8A1]"
+            placeholder="Search by title or URL"
+            value={filters.q || ""}
+            onChange={(e) => update("q", e.target.value)}
+          />
+        </div>
+
+        {/* Advanced Filter */}
         <div>
-          <h1 className="text-2xl font-bold">All Listings</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Manage and review all property listings in the system
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#4EA8A1]/90 transition-colors text-sm">
-            Export Data
-          </button>
-          <button className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#3F8C86] transition-colors text-sm">
-            Add Listing
-          </button>
-          <button
-            onClick={() => refetch()}
-            className="text-sm text-[#4EA8A1] hover:text-[#4EA8A1]/80"
-          >
-            Refresh
+          <button className="inline-flex items-center gap-2 px-4 py-2 bg-transparent border border-[#4EA8A1] text-[#4EA8A1] rounded-lg hover:bg-[#4EA8A1] hover:text-white transition-colors w-fit">
+            <span className="text-sm">⚙️</span>
+            Advanced Filter
           </button>
         </div>
+
+        {/* Loading and Error States */}
+        {isLoading && (
+          <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-500">
+            Loading listings...
+          </div>
+        )}
+        {isError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+            Failed to load listings. Please try again.
+          </div>
+        )}
+
+        {/* Table */}
+        {!isLoading && !isError && (
+          <Table
+            columns={columns}
+            data={data?.items || []}
+            emptyMessage="No listings found. Try adjusting your filters."
+          />
+        )}
+
+        {/* Pagination */}
+        {!isLoading && !isError && totalItems > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={(page) => update("page", page)}
+            className="mt-6"
+          />
+        )}
       </div>
-
-      {/* Search Filter */}
-      <div className="border border-[#4EA8A1] text-[#4EA8A1] flex items-center h-11 rounded-lg px-3">
-        <CiSearch size={18} className="mr-2" />
-        <input
-          className="w-full border-none focus:outline-none placeholder:text-[#4EA8A1]"
-          placeholder="Search by title or URL"
-          value={filters.q || ""}
-          onChange={(e) => update("q", e.target.value)}
-        />
-      </div>
-
-      {/* Advanced Filter */}
-      <div>
-        <button className="inline-flex items-center gap-2 px-4 py-2 bg-transparent border border-[#4EA8A1] text-[#4EA8A1] rounded-lg hover:bg-[#4EA8A1] hover:text-white transition-colors w-fit">
-          <span className="text-sm">⚙️</span>
-          Advanced Filter
-        </button>
-      </div>
-
-      {/* Loading and Error States */}
-      {isLoading && (
-        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-500">
-          Loading listings...
-        </div>
-      )}
-      {isError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-          Failed to load listings. Please try again.
-        </div>
-      )}
-
-      {/* Table */}
-      {!isLoading && !isError && (
-        <Table
-          columns={columns}
-          data={data?.items || []}
-          emptyMessage="No listings found. Try adjusting your filters."
-        />
-      )}
-
-      {/* Pagination */}
-      {!isLoading && !isError && totalItems > 0 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          itemsPerPage={itemsPerPage}
-          onPageChange={(page) => update("page", page)}
-          className="mt-6"
+      {isCreateOpen && (
+        <CreateListingModal
+          onClose={() => setIsCreateOpen(false)}
+          onSuccess={() => {
+            refetch();
+          }}
         />
       )}
-    </div>
+    </>
   );
 }

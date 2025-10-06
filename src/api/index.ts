@@ -200,6 +200,26 @@ export function useAdminListing(id?: string) {
   });
 }
 
+export type CreateListingPayload = FormData;
+
+type CreateListingResponse = { status: string; data: AnyListing };
+
+export function useCreateListing() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: CreateListingPayload) => {
+      const { data } = await adminApi.post<CreateListingResponse>(
+        "/listings",
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "listings"] });
+    },
+  });
+}
+
 // ---- Users ----
 type AnyUser = Record<string, unknown>;
 type UsersResponse = { status: string; data: PageList<AnyUser> };
@@ -822,6 +842,9 @@ export type RawListingsFilters = {
   q?: string;
   source?: string;
   processed?: "true" | "false";
+  scrapeSessionId?: string; // Filter by specific job
+  jobType?: string; // Filter by job type (e.g., npc-recent-30-days)
+  listingUrl?: string; // Exact URL lookup
   page?: number;
   limit?: number;
   sort?: string; // e.g. -scrapedAt,listingUrl
@@ -855,47 +878,306 @@ type ProcessRawBody = {
   headers?: Record<string, string>;
   cookie?: string;
   userAgent?: string;
+  scrapeSessionId?: string;
+  jobType?: string;
+  rawListingIds?: string[];
+  listingUrls?: string[];
+  listingUrl?: string;
+  mode?: "async" | "inline";
+  async?: boolean;
+  enqueue?: boolean;
 };
+
+export type ProcessRawResult = {
+  url?: string;
+  status: "uptodate" | "past" | "failed" | "skipped";
+  lastUpdated?: string;
+  processedListingId?: string;
+  error?: string;
+  reason?: string;
+  statusReason?: string;
+};
+
+export type ProcessRawCounts = {
+  uptodate: number;
+  past: number;
+  failed: number;
+  skipped: number;
+};
+
+export type ProcessedListingDto = {
+  _id: string;
+  rawListingId?: string;
+  listingUrl?: string | null;
+  source?: string | null;
+  status: "uptodate" | "past" | "failed" | "skipped";
+  statusReason?: string | null;
+  targetCollection?: "Listing" | "PastListing" | null;
+  processedAt: string;
+  lastUpdatedDate?: string | null;
+  detailSnapshot?: any;
+  rawSnapshot?: any;
+  scrapeSessionId?: string | null;
+  jobType?: string | null;
+  errorMessage?: string | null;
+};
+
+export type ProcessRawSyncResponse = {
+  processed: number;
+  total: number;
+  counts: ProcessRawCounts;
+  results: ProcessRawResult[];
+  processedDocs?: ProcessedListingDto[];
+};
+
+export type ProcessRawAsyncResponse = {
+  jobId: string;
+  status: string;
+  message: string;
+};
+
+export type ProcessRawResponse =
+  | ProcessRawSyncResponse
+  | ProcessRawAsyncResponse;
+
 export function useProcessRawListings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: ProcessRawBody) => {
-      const { data } = await adminApi.post("/raw-listings/process", body);
-      return data?.data ?? data;
+      const { data } = await adminApi.post<{
+        status: string;
+        data: ProcessRawResponse;
+      }>("/raw-listings/process", body);
+      return data.data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "raw-listings"] });
+      qc.invalidateQueries({ queryKey: ["admin", "processed-listings"] });
       qc.invalidateQueries({ queryKey: ["admin", "listings"] });
     },
   });
 }
 
-// Scrape NPC (list pages only)
-export function useScrapeNpc() {
+type ProcessRawListingByIdVariables = {
+  id: string;
+  payload?: ProcessRawBody;
+};
+
+export function useProcessRawListingById() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: Record<string, unknown>) => {
-      const { data } = await adminApi.post("/scrape/npc", body);
-      return data?.data ?? data;
+    mutationFn: async ({ id, payload }: ProcessRawListingByIdVariables) => {
+      const { data } = await adminApi.post<{
+        status: string;
+        data: ProcessRawResponse;
+      }>(`/raw-listings/${id}/process`, payload ?? {});
+      return data.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "raw-listings"] });
+      qc.invalidateQueries({ queryKey: ["admin", "processed-listings"] });
+      qc.invalidateQueries({ queryKey: ["admin", "listings"] });
     },
   });
 }
 
-// Scrape NPC Batch (list + detail)
-export function useScrapeNpcBatch() {
+type PendingRawListingsResponse = {
+  status: string;
+  data: PageList<AnyRawListing>;
+};
+
+export function useAdminPendingRawListings(filters: RawListingsFilters) {
+  return useQuery({
+    queryKey: ["admin", "raw-listings", "pending", filters],
+    queryFn: async () => {
+      const { data } = await adminApi.get<PendingRawListingsResponse>(
+        "/raw-listings/pending",
+        { params: filters }
+      );
+      return data.data;
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+// ---- Processed Listings ----
+export type ProcessedListingsFilters = {
+  q?: string;
+  status?: "uptodate" | "past" | "failed" | "skipped";
+  source?: string;
+  jobType?: string;
+  scrapeSessionId?: string;
+  listingUrl?: string;
+  targetCollection?: "Listing" | "PastListing";
+  page?: number;
+  limit?: number;
+  sort?: string; // e.g. -processedAt
+};
+
+type ProcessedListingsResponse = {
+  status: string;
+  data: PageList<ProcessedListingDto>;
+};
+
+export function useAdminProcessedListings(filters: ProcessedListingsFilters) {
+  return useQuery({
+    queryKey: ["admin", "processed-listings", filters],
+    queryFn: async () => {
+      const { data } = await adminApi.get<ProcessedListingsResponse>(
+        "/processed-listings",
+        { params: filters }
+      );
+      return data.data;
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+// Get single processed listing
+type ProcessedListingDetailResponse = {
+  status: string;
+  data: ProcessedListingDto;
+};
+
+export function useAdminProcessedListing(id?: string) {
+  return useQuery({
+    queryKey: ["admin", "processed-listing", id],
+    queryFn: async () => {
+      const { data } = await adminApi.get<ProcessedListingDetailResponse>(
+        `/processed-listings/${id}`
+      );
+      return data.data;
+    },
+    enabled: !!id,
+  });
+}
+
+// ---- New Job-Based Scraping System ----
+
+// Scrape Job Types
+export type ScrapeJobStatus = "queued" | "running" | "success" | "error";
+export type ScrapeJobType = "npc-recent-30-days" | "process-raw-listings";
+
+export type ScrapeJob = {
+  jobId: string;
+  type: ScrapeJobType;
+  status: ScrapeJobStatus;
+  params?: {
+    limit?: number;
+    maxPages?: number;
+    url?: string;
+    headers?: Record<string, string>;
+    cookie?: string;
+    userAgent?: string;
+  };
+  stats?: {
+    totalFetched?: number;
+    inserted?: number;
+    skippedExisting?: number;
+    failed?: number;
+    processed?: number;
+    updated?: number;
+    archived?: number;
+    skipped?: number;
+  };
+  errorMessage?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  [key: string]: unknown;
+};
+
+export type ScrapeJobsFilters = {
+  type?: ScrapeJobType;
+  status?: ScrapeJobStatus;
+  page?: number;
+  limit?: number;
+};
+
+// Queue a new NPC recent listings scrape
+export type QueueRecentScrapePayload = {
+  limit?: number;
+  maxPages?: number;
+  url?: string;
+  headers?: Record<string, string>;
+  cookie?: string;
+  userAgent?: string;
+};
+
+type QueueScrapeResponse = {
+  status: string;
+  data: {
+    jobId: string;
+    status: string;
+    message: string;
+  };
+};
+
+export function useQueueRecentScrape() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: Record<string, unknown>) => {
-      const { data } = await adminApi.post("/scrape/npc/batch", body);
-      return data?.data ?? data;
+    mutationFn: async (payload: QueueRecentScrapePayload) => {
+      const { data } = await adminApi.post<QueueScrapeResponse>(
+        "/scrape/npc/recent",
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "scrape-jobs"] });
     },
   });
 }
 
-// Scrape Premium Lagos preset
-export function useScrapePremiumLagos() {
-  return useMutation({
-    mutationFn: async (body: Record<string, unknown>) => {
-      const { data } = await adminApi.post("/scrape/premium-lagos", body);
-      return data?.data ?? data;
+// List scrape jobs
+type ScrapeJobsResponse = {
+  status: string;
+  data: {
+    total: number;
+    page: number;
+    pageSize: number;
+    items: ScrapeJob[];
+  };
+};
+
+export function useScrapeJobs(filters: ScrapeJobsFilters = {}) {
+  return useQuery({
+    queryKey: ["admin", "scrape-jobs", filters],
+    queryFn: async () => {
+      const { data } = await adminApi.get<ScrapeJobsResponse>("/scrape/jobs", {
+        params: filters,
+      });
+      return data.data;
+    },
+    placeholderData: keepPreviousData,
+    refetchInterval: (query) => {
+      const jobs = query.state.data?.items || [];
+      const hasRunning = jobs.some(
+        (j) => j.status === "running" || j.status === "queued"
+      );
+      return hasRunning ? 5000 : false; // Poll every 5s if jobs are running
+    },
+  });
+}
+
+// Get a single scrape job
+type ScrapeJobResponse = {
+  status: string;
+  data: ScrapeJob;
+};
+
+export function useScrapeJob(jobId?: string) {
+  return useQuery({
+    queryKey: ["admin", "scrape-job", jobId],
+    queryFn: async () => {
+      const { data } = await adminApi.get<ScrapeJobResponse>(
+        `/scrape/jobs/${jobId}`
+      );
+      return data.data;
+    },
+    enabled: !!jobId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "running" || status === "queued" ? 3000 : false; // Poll every 3s while running
     },
   });
 }

@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.nigeriapropertycentre.com",
+        port: "",
+        pathname: "/properties/images/**",
+      },
+    ],
+  },
   async rewrites() {
     return [
       {

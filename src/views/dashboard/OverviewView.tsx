@@ -198,11 +198,11 @@ export default function OverviewView() {
         <h2 className="font-bold text-black/80 mb-3">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
           <Link
-            href="#"
+            href="/dashboard/pipeline/raw-listings"
             className="rounded-lg border border-black/20 px-4 py-2 text-sm bg-transparent hover:bg-black/5 flex items-center gap-2"
           >
             <FiSearch className="w-4 h-4" />
-            Scrape Listing
+            Scrape Listings
           </Link>
           <Link
             href="#"

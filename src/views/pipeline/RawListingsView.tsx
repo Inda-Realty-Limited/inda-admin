@@ -1,15 +1,20 @@
 import {
   useAdminRawListings,
   useProcessRawListings,
-  useScrapeNpc,
-  useScrapeNpcBatch,
-  useScrapePremiumLagos,
+  useQueueRecentScrape,
+  useScrapeJobs,
   type RawListingsFilters,
 } from "@/api";
 import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
 import Head from "next/head";
 import { useState } from "react";
 import { CiSearch } from "react-icons/ci";
+import {
+  FiAlertCircle,
+  FiCheckCircle,
+  FiClock,
+  FiRefreshCw,
+} from "react-icons/fi";
 
 export default function RawListingsView() {
   const [filters, setFilters] = useState<RawListingsFilters>({
@@ -20,6 +25,8 @@ export default function RawListingsView() {
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [expandId, setExpandId] = useState<string | null>(null);
+  const [showScrapeModal, setShowScrapeModal] = useState(false);
+  const [showJobsModal, setShowJobsModal] = useState(false);
 
   function update<K extends keyof RawListingsFilters>(
     key: K,
@@ -34,9 +41,6 @@ export default function RawListingsView() {
 
   const { data, isLoading, isError, refetch } = useAdminRawListings(filters);
   const processMutation = useProcessRawListings();
-  const scrapeNpc = useScrapeNpc();
-  const scrapeNpcBatch = useScrapeNpcBatch();
-  const scrapePremium = useScrapePremiumLagos();
 
   const currentPage = filters.page || 1;
   const itemsPerPage = filters.limit || 20;
@@ -45,44 +49,86 @@ export default function RawListingsView() {
 
   const columns: TableColumn[] = [
     {
+      key: "#",
+      label: "#",
+      align: "center",
+      render: (_v, _row, index) => {
+        const rowNumber = (currentPage - 1) * itemsPerPage + (index || 0) + 1;
+        return (
+          <span className="text-xs font-medium text-gray-600">{rowNumber}</span>
+        );
+      },
+    },
+    {
       key: "source",
       label: "Source",
-      render: (v) => (typeof v === "string" ? v : "—"),
+      render: (v) => (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+          {typeof v === "string" ? v : "—"}
+        </span>
+      ),
     },
     {
       key: "listingUrl",
-      label: "URL",
+      label: "Listing URL",
       render: (v) =>
         typeof v === "string" ? (
           <a
             href={v}
             target="_blank"
             rel="noreferrer"
-            className="text-[#4EA8A1] hover:underline truncate max-w-[240px] inline-block align-top"
+            className="text-[#4EA8A1] hover:underline truncate max-w-[300px] inline-block align-top text-sm"
+            title={v}
           >
-            {v}
+            {v.split("/").pop()?.replace(/-/g, " ").substring(0, 50) || v}
           </a>
         ) : (
           "—"
         ),
     },
     {
+      key: "jobType",
+      label: "Job Type",
+      align: "center",
+      render: (v) =>
+        v ? (
+          <span className="px-2 py-1 rounded text-xs font-mono bg-purple-50 text-purple-700">
+            {String(v)}
+          </span>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      key: "scrapeSessionId",
+      label: "Session ID",
+      align: "center",
+      render: (v, _row) => {
+        const sessionId = String(v || "");
+        const shortId = sessionId ? sessionId.substring(0, 8) : "—";
+        return v ? (
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(sessionId);
+              alert("Session ID copied!");
+            }}
+            className="px-2 py-1 rounded text-xs font-mono bg-gray-100 hover:bg-gray-200 transition-colors"
+            title={`Click to copy: ${sessionId}`}
+          >
+            {shortId}...
+          </button>
+        ) : (
+          "—"
+        );
+      },
+    },
+    {
       key: "scrapedAt",
-      label: "Scraped",
+      label: "Scraped At",
       align: "center",
-      render: (v) => formatDate(v),
-    },
-    {
-      key: "processedAt",
-      label: "Processed",
-      align: "center",
-      render: (v) => formatDate(v),
-    },
-    {
-      key: "lastClassification",
-      label: "Class",
-      align: "center",
-      render: (v) => badge(v),
+      render: (v) => (
+        <span className="text-xs text-gray-600">{formatDate(v)}</span>
+      ),
     },
     {
       key: "actions",
@@ -104,21 +150,6 @@ export default function RawListingsView() {
       },
     },
   ];
-
-  function badge(v: unknown) {
-    if (!v || typeof v !== "string") return "—";
-    const base = "px-2 py-1 rounded-full text-xs font-medium";
-    const map: Record<string, string> = {
-      uptodate: "bg-green-100 text-green-700",
-      past: "bg-gray-200 text-gray-700",
-      failed: "bg-red-100 text-red-700",
-    };
-    return (
-      <span className={`${base} ${map[v] || "bg-blue-100 text-blue-700"}`}>
-        {v}
-      </span>
-    );
-  }
 
   function formatDate(v: unknown) {
     if (!v) return "—";
@@ -174,6 +205,12 @@ export default function RawListingsView() {
             Refresh
           </button>
           <button
+            onClick={() => setShowJobsModal(true)}
+            className="px-3 py-2 bg-purple-600 text-white rounded-md text-sm hover:bg-purple-700"
+          >
+            View Jobs
+          </button>
+          <button
             onClick={() => setShowAdvanced((v) => !v)}
             className="px-3 py-2 border border-[#4EA8A1] text-[#4EA8A1] rounded-md text-sm hover:bg-[#4EA8A1] hover:text-white"
           >
@@ -209,6 +246,28 @@ export default function RawListingsView() {
               onChange={(e) => update("source", e.target.value)}
               className="h-9 border rounded px-2 text-sm"
               placeholder="NPC"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-600">
+              Scrape Session ID
+            </label>
+            <input
+              value={filters.scrapeSessionId || ""}
+              onChange={(e) => update("scrapeSessionId", e.target.value)}
+              className="h-9 border rounded px-2 text-sm"
+              placeholder="Job ID"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-600">
+              Job Type
+            </label>
+            <input
+              value={filters.jobType || ""}
+              onChange={(e) => update("jobType", e.target.value)}
+              className="h-9 border rounded px-2 text-sm"
+              placeholder="npc-recent-30-days"
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -268,6 +327,8 @@ export default function RawListingsView() {
                   includePayload: "false",
                   q: "",
                   source: "",
+                  scrapeSessionId: "",
+                  jobType: "",
                   processed: undefined,
                 })
               }
@@ -282,9 +343,7 @@ export default function RawListingsView() {
       <PipelineActions
         process={() => processMutation.mutate({})}
         processing={processMutation.status === "pending"}
-        scrapeNpc={(body) => scrapeNpc.mutate(body)}
-        scrapeNpcBatch={(body) => scrapeNpcBatch.mutate(body)}
-        scrapePremium={(body) => scrapePremium.mutate(body)}
+        openScrapeModal={() => setShowScrapeModal(true)}
       />
 
       {isLoading && (
@@ -324,6 +383,26 @@ export default function RawListingsView() {
           items={data?.items || []}
         />
       )}
+
+      {showScrapeModal && (
+        <ScrapeModal
+          onClose={() => setShowScrapeModal(false)}
+          onSuccess={() => {
+            setShowScrapeModal(false);
+            setShowJobsModal(true);
+          }}
+        />
+      )}
+
+      {showJobsModal && (
+        <JobsModal
+          onClose={() => setShowJobsModal(false)}
+          onSelectJob={(jobId) => {
+            update("scrapeSessionId", jobId);
+            setShowJobsModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -356,17 +435,28 @@ function RawExpandModal({
           <>
             <KeyValue label="URL" value={item.listingUrl as any} mono copy />
             <KeyValue label="Source" value={item.source as any} />
+            <KeyValue label="Job Type" value={item.jobType as any} />
+            <KeyValue
+              label="Scrape Session ID"
+              value={item.scrapeSessionId as any}
+              mono
+              copy
+            />
             <KeyValue
               label="Scraped At"
               value={formatAnyDate(item.scrapedAt)}
             />
             <KeyValue
-              label="Processed At"
-              value={formatAnyDate(item.processedAt)}
+              label="Created At"
+              value={formatAnyDate(item.createdAt)}
             />
             <KeyValue
-              label="Classification"
-              value={item.lastClassification as any}
+              label="Updated At"
+              value={formatAnyDate(item.updatedAt)}
+            />
+            <KeyValue
+              label="Processed At"
+              value={formatAnyDate(item.processedAt)}
             />
             {item.payload && (
               <div>
@@ -438,149 +528,425 @@ function formatAnyDate(v: any) {
   return isNaN(d.getTime()) ? "—" : d.toLocaleString();
 }
 
-// High-level pipeline actions component (scrape / process)
+// Pipeline actions component (scrape / process)
 function PipelineActions(props: {
   process: () => void;
   processing: boolean;
-  scrapeNpc: (body: Record<string, unknown>) => void;
-  scrapeNpcBatch: (body: Record<string, unknown>) => void;
-  scrapePremium: (body: Record<string, unknown>) => void;
+  openScrapeModal: () => void;
 }) {
-  const [mode, setMode] = useState<"npc" | "npcBatch" | "premium" | null>(null);
-  const [form, setForm] = useState<Record<string, string | number | boolean>>({
-    url: "",
-    startUrl: "",
-    limit: 50,
-    maxPages: 5,
-  });
-
-  function submit() {
-    if (mode === "npc")
-      props.scrapeNpc({
-        url: form.url,
-        maxPages: form.maxPages,
-        limit: form.limit,
-      });
-    if (mode === "npcBatch")
-      props.scrapeNpcBatch({
-        startUrl: form.startUrl,
-        maxPages: form.maxPages,
-        limit: form.limit,
-      });
-    if (mode === "premium")
-      props.scrapePremium({ limit: form.limit, maxPages: form.maxPages });
-    setMode(null);
-  }
-
   return (
-    <div className="bg-white border rounded-lg p-4 space-y-4">
+    <div className="bg-white border rounded-lg p-4">
       <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={props.process}
           disabled={props.processing}
-          className="px-3 py-2 bg-[#4EA8A1] text-white rounded-md text-sm disabled:opacity-50"
+          className="px-4 py-2 bg-[#4EA8A1] text-white rounded-md text-sm disabled:opacity-50 hover:bg-[#3F8C86] transition-colors"
         >
           {props.processing ? "Processing…" : "Process Raw → Listings"}
         </button>
         <button
-          onClick={() => setMode("npc")}
-          className="px-3 py-2 bg-[#4EA8A1] hover:bg-[#3F8C86] text-white rounded-md text-sm transition-colors"
+          onClick={props.openScrapeModal}
+          className="px-4 py-2 bg-[#4EA8A1] hover:bg-[#3F8C86] text-white rounded-md text-sm transition-colors flex items-center gap-2"
         >
-          Scrape NPC
+          <FiRefreshCw size={16} />
+          Scrape Recent Listings
         </button>
-        <button
-          onClick={() => setMode("npcBatch")}
-          className="px-3 py-2 bg-[#4EA8A1] hover:bg-[#3F8C86] text-white rounded-md text-sm transition-colors"
-        >
-          NPC Batch
-        </button>
-        <button
-          onClick={() => setMode("premium")}
-          className="px-3 py-2 bg-[#367972] hover:bg-[#2F6963] text-white rounded-md text-sm transition-colors"
-        >
-          Premium Lagos
-        </button>
-        {mode && (
-          <button
-            onClick={() => setMode(null)}
-            className="px-3 py-2 text-sm text-gray-600 underline"
-          >
-            Cancel
-          </button>
-        )}
+        <span className="text-xs text-gray-500 ml-2">
+          Fire-and-forget scraping with job tracking
+        </span>
       </div>
-      {mode && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            submit();
-          }}
-          className="grid md:grid-cols-5 gap-3 items-end"
-        >
-          {mode === "npc" && (
-            <div className="md:col-span-2 flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-600">
-                Start URL
-              </label>
-              <input
-                value={form.url as any}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, url: e.target.value }))
-                }
-                className="h-9 border rounded px-2 text-sm"
-                required
-              />
-            </div>
-          )}
-          {mode === "npcBatch" && (
-            <div className="md:col-span-2 flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-600">
-                Batch Start URL
-              </label>
-              <input
-                value={form.startUrl as any}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, startUrl: e.target.value }))
-                }
-                className="h-9 border rounded px-2 text-sm"
-                required
-              />
-            </div>
-          )}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Limit</label>
-            <input
-              type="number"
-              value={form.limit as any}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, limit: Number(e.target.value) }))
-              }
-              className="h-9 border rounded px-2 text-sm"
-            />
+    </div>
+  );
+}
+
+// Scrape modal for queueing new scrape jobs
+function ScrapeModal(props: { onClose: () => void; onSuccess: () => void }) {
+  const [form, setForm] = useState({
+    limit: 5,
+    maxPages: 3,
+    url: "",
+    headers: "",
+    cookie: "",
+    userAgent: "",
+  });
+  const queueMutation = useQueueRecentScrape();
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      const payload: any = {
+        limit: form.limit || undefined,
+        maxPages: form.maxPages || undefined,
+      };
+      if (form.url) payload.url = form.url;
+      if (form.cookie) payload.cookie = form.cookie;
+      if (form.userAgent) payload.userAgent = form.userAgent;
+      if (form.headers) {
+        try {
+          payload.headers = JSON.parse(form.headers);
+        } catch {
+          alert("Invalid JSON in headers field");
+          return;
+        }
+      }
+
+      await queueMutation.mutateAsync(payload);
+      props.onSuccess();
+    } catch (err: any) {
+      alert(err?.message || "Failed to queue scrape job");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={props.onClose} />
+      <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold">Queue Recent Listings Scrape</h2>
+          <button
+            onClick={props.onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+            <strong>Fire-and-forget:</strong> This scrape runs in the
+            background. You&apos;ll receive a job ID and can track progress in
+            the Jobs view.
           </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700">
+                Limit (optional)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={form.limit}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, limit: Number(e.target.value) }))
+                }
+                className="h-10 border rounded px-3 text-sm"
+                placeholder="e.g., 5"
+              />
+              <span className="text-xs text-gray-500">
+                Number of listings to fetch. Leave empty for unlimited.
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700">
+                Max Pages (optional)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={form.maxPages}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, maxPages: Number(e.target.value) }))
+                }
+                className="h-10 border rounded px-3 text-sm"
+                placeholder="e.g., 3"
+              />
+              <span className="text-xs text-gray-500">
+                Cap page traversal. Leave empty for unlimited.
+              </span>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">
-              Max Pages
+            <label className="text-sm font-medium text-gray-700">
+              Custom URL (optional)
             </label>
             <input
-              type="number"
-              value={form.maxPages as any}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, maxPages: Number(e.target.value) }))
-              }
-              className="h-9 border rounded px-2 text-sm"
+              type="url"
+              value={form.url}
+              onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+              className="h-10 border rounded px-3 text-sm"
+              placeholder="https://..."
             />
+            <span className="text-xs text-gray-500">
+              Override default NPC 30-day feed URL.
+            </span>
           </div>
-          <div className="flex flex-col gap-1 md:col-span-1">
+
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">
+              Advanced (optional)
+            </h3>
+
+            <div className="space-y-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-600">
+                  Custom Headers (JSON)
+                </label>
+                <textarea
+                  value={form.headers}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, headers: e.target.value }))
+                  }
+                  className="h-20 border rounded px-3 py-2 text-xs font-mono"
+                  placeholder='{"X-Custom": "value"}'
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-600">
+                  Cookie
+                </label>
+                <input
+                  value={form.cookie}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, cookie: e.target.value }))
+                  }
+                  className="h-10 border rounded px-3 text-xs font-mono"
+                  placeholder="session=..."
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-600">
+                  User Agent
+                </label>
+                <input
+                  value={form.userAgent}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, userAgent: e.target.value }))
+                  }
+                  className="h-10 border rounded px-3 text-xs"
+                  placeholder="Mozilla/5.0..."
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-4 border-t">
+            <button
+              type="button"
+              onClick={props.onClose}
+              className="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50"
+            >
+              Cancel
+            </button>
             <button
               type="submit"
-              className="h-9 bg-[#4EA8A1] hover:bg-[#3F8C86] text-white rounded text-sm transition-colors"
+              disabled={queueMutation.status === "pending"}
+              className="px-4 py-2 bg-[#4EA8A1] text-white rounded text-sm hover:bg-[#3F8C86] disabled:opacity-50"
             >
-              Run
+              {queueMutation.status === "pending"
+                ? "Queueing..."
+                : "Queue Scrape"}
             </button>
           </div>
         </form>
-      )}
+      </div>
+    </div>
+  );
+}
+
+// Jobs modal for viewing scrape job history
+function JobsModal(props: {
+  onClose: () => void;
+  onSelectJob: (jobId: string) => void;
+}) {
+  const [filters, setFilters] = useState<{
+    status?: "queued" | "running" | "success" | "error";
+    page: number;
+  }>({ page: 1 });
+
+  const { data, isLoading } = useScrapeJobs({
+    type: "npc-recent-30-days",
+    ...filters,
+    limit: 10,
+  });
+
+  function getStatusBadge(status: string) {
+    const map: Record<string, string> = {
+      queued: "bg-yellow-100 text-yellow-700",
+      running: "bg-blue-100 text-blue-700",
+      success: "bg-green-100 text-green-700",
+      error: "bg-red-100 text-red-700",
+    };
+    return `px-2 py-1 rounded-full text-xs font-medium ${
+      map[status] || "bg-gray-100 text-gray-700"
+    }`;
+  }
+
+  function getStatusIcon(status: string) {
+    switch (status) {
+      case "success":
+        return <FiCheckCircle className="text-green-600" />;
+      case "error":
+        return <FiAlertCircle className="text-red-600" />;
+      case "running":
+        return <FiRefreshCw className="text-blue-600 animate-spin" />;
+      case "queued":
+        return <FiClock className="text-yellow-600" />;
+      default:
+        return null;
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={props.onClose} />
+      <div className="relative bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] flex flex-col">
+        <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold">Scrape Jobs</h2>
+          <button
+            onClick={props.onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="p-6 border-b flex gap-2">
+          <select
+            value={filters.status || ""}
+            onChange={(e) =>
+              setFilters((f) => ({
+                ...f,
+                status: e.target.value as any,
+                page: 1,
+              }))
+            }
+            className="h-10 border rounded px-3 text-sm"
+          >
+            <option value="">All Statuses</option>
+            <option value="queued">Queued</option>
+            <option value="running">Running</option>
+            <option value="success">Success</option>
+            <option value="error">Error</option>
+          </select>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {isLoading && (
+            <div className="text-center text-gray-500 py-8">
+              Loading jobs...
+            </div>
+          )}
+
+          {!isLoading && data?.items.length === 0 && (
+            <div className="text-center text-gray-500 py-8">
+              No scrape jobs found.
+            </div>
+          )}
+
+          {!isLoading && data && data.items.length > 0 && (
+            <div className="space-y-3">
+              {data.items.map((job) => (
+                <div
+                  key={job.jobId}
+                  className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(job.status)}
+                        <span className="font-mono text-sm text-gray-600">
+                          {job.jobId}
+                        </span>
+                        <span className={getStatusBadge(job.status)}>
+                          {job.status}
+                        </span>
+                      </div>
+
+                      {job.params && (
+                        <div className="text-xs text-gray-600">
+                          Limit: {job.params.limit || "∞"} | Max Pages:{" "}
+                          {job.params.maxPages || "∞"}
+                        </div>
+                      )}
+
+                      {job.stats && (
+                        <div className="grid grid-cols-4 gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-500">Fetched:</span>{" "}
+                            <strong>{job.stats.totalFetched || 0}</strong>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Inserted:</span>{" "}
+                            <strong className="text-green-600">
+                              {job.stats.inserted || 0}
+                            </strong>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Skipped:</span>{" "}
+                            <strong className="text-yellow-600">
+                              {job.stats.skippedExisting || 0}
+                            </strong>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Failed:</span>{" "}
+                            <strong className="text-red-600">
+                              {job.stats.failed || 0}
+                            </strong>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="text-xs text-gray-500">
+                        Started: {formatAnyDate(job.startedAt)} |{" "}
+                        {job.finishedAt
+                          ? `Finished: ${formatAnyDate(job.finishedAt)}`
+                          : "In progress..."}
+                      </div>
+
+                      {job.errorMessage && (
+                        <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                          {job.errorMessage}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => props.onSelectJob(job.jobId)}
+                      className="px-3 py-1 text-xs bg-[#4EA8A1] text-white rounded hover:bg-[#3F8C86]"
+                    >
+                      View Listings
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {!isLoading && data && data.total > (data.pageSize || 10) && (
+          <div className="border-t px-6 py-4 flex items-center justify-between">
+            <span className="text-sm text-gray-600">
+              Page {data.page} of{" "}
+              {Math.ceil(data.total / (data.pageSize || 10))}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() =>
+                  setFilters((f) => ({ ...f, page: Math.max(1, f.page - 1) }))
+                }
+                disabled={filters.page === 1}
+                className="px-3 py-1 border rounded text-sm disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setFilters((f) => ({ ...f, page: f.page + 1 }))}
+                disabled={
+                  filters.page >= Math.ceil(data.total / (data.pageSize || 10))
+                }
+                className="px-3 py-1 border rounded text-sm disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

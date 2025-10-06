@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";
 import {
+  FiCheckCircle,
   FiClipboard,
   FiCode,
   FiCreditCard,
@@ -68,6 +69,12 @@ const navItems: NavItem[] = [
     label: "Raw Listings",
     href: "/dashboard/pipeline/raw-listings",
     icon: FiDatabase,
+    section: "pipeline",
+  },
+  {
+    label: "Processed Listings",
+    href: "/dashboard/pipeline/processed-listings",
+    icon: FiCheckCircle,
     section: "pipeline",
   },
   {
