@@ -1,4 +1,5 @@
 import { useAdminOrderGroup } from "@/api";
+import DueDiligenceReportEditor from "@/components/DueDiligenceReportEditor";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import {
@@ -22,6 +23,10 @@ export default function OrderGroupDetailPage() {
     const bd = b?.paidAt ? new Date(b.paidAt).getTime() : 0;
     return bd - ad;
   });
+
+  const hasDueDiligencePlan = plans.some((plan) =>
+    ["deepDive", "deeperDive"].includes(plan?.plan)
+  );
 
   return (
     <div className="space-y-6 pb-8">
@@ -210,6 +215,26 @@ export default function OrderGroupDetailPage() {
                 <pre className="text-xs overflow-auto bg-gray-50 p-4 rounded-lg border border-gray-200 max-h-72 font-mono leading-relaxed">
                   {JSON.stringify(data.listing, null, 2)}
                 </pre>
+              </div>
+            </div>
+          )}
+
+          {groupId && hasDueDiligencePlan && (
+            <div className="rounded-xl border-2 border-gray-200 bg-white shadow-sm overflow-hidden">
+              <div className="bg-gradient-to-r from-[#E8F5F4] to-[#D4ECE9] px-6 py-4 border-b-2 border-[#4EA8A1]/20">
+                <div className="flex items-center gap-2.5">
+                  <FiPackage size={18} className="text-[#4EA8A1]" />
+                  <h2 className="text-sm font-extrabold uppercase tracking-widest text-gray-800">
+                    Due Diligence Report
+                  </h2>
+                </div>
+                <p className="mt-1 text-xs text-gray-600 font-medium">
+                  Draft, publish, and attach findings for this paid Deep Dive
+                  order.
+                </p>
+              </div>
+              <div className="p-6">
+                <DueDiligenceReportEditor groupId={groupId} />
               </div>
             </div>
           )}

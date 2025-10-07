@@ -101,6 +101,8 @@ type AdminProfile = {
   name?: string;
   [key: string]: unknown;
 };
+
+// ---- Due Diligence Reports ----
 type LoginResponse = {
   status: string | number;
   token: string;
@@ -477,6 +479,166 @@ type UpdateQuestionnaireStatusVariables = {
   notes?: string;
   userId?: string;
 };
+
+// ---- Due Diligence Reports ----
+export type DueDiligenceChecklistItem = {
+  title?: string;
+  status?: string;
+  note?: string;
+};
+
+export type DueDiligencePropertyOverview = {
+  propertyType?: string;
+  location?: string;
+  landSizeSqm?: number;
+  yearBuilt?: number;
+  keyFindings?: string[];
+};
+
+export type DueDiligenceValuationAnalysis = {
+  askingPriceNGN?: number;
+  fairMarketValueNGN?: number;
+  valueOpportunityNGN?: number;
+  recommendation?: string;
+  summary?: string;
+};
+
+export type DueDiligenceRentalYields = {
+  longTerm?: number;
+  shortTerm?: number;
+  marketAverage?: number;
+};
+
+export type DueDiligenceMarketContext = {
+  comparablePricePerSqmNGN?: number;
+  subjectPricePerSqmNGN?: number;
+  valueDeltaPercent?: number;
+  rentalYields?: DueDiligenceRentalYields;
+  marketScore?: number;
+  investmentGrade?: string;
+};
+
+export type DueDiligenceFinalVerdict = {
+  verdict?: string;
+  summary?: string;
+  legalCompliancePercent?: number;
+  surveyAccuracyPercent?: number;
+  marketPositionSummary?: string;
+};
+
+export type DueDiligenceAttachment = {
+  title?: string;
+  url: string;
+  key?: string;
+  contentType?: string;
+};
+
+export type DueDiligenceReport = {
+  orderGroupId?: string;
+  reportId?: string;
+  reportDate?: string;
+  clientName?: string;
+  analystName?: string;
+  confidenceLevel?: string;
+  executiveSummary?: string;
+  propertyOverview?: DueDiligencePropertyOverview;
+  valuationAnalysis?: DueDiligenceValuationAnalysis;
+  legalVerification?: DueDiligenceChecklistItem[];
+  surveyVerification?: DueDiligenceChecklistItem[];
+  marketContext?: DueDiligenceMarketContext;
+  finalVerdict?: DueDiligenceFinalVerdict;
+  attachments?: DueDiligenceAttachment[];
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  publishedAt?: string;
+  paymentReferences?: string[];
+};
+
+export type DueDiligencePayment = {
+  plan?: string;
+  reference: string;
+  provider?: string;
+  paidAt?: string;
+  amountNGN?: number;
+  createdAt?: string;
+};
+
+export type DueDiligenceOrderContext = {
+  groupId: string;
+  plan?: string;
+  paymentReferences?: string[];
+  payments: DueDiligencePayment[];
+  user?: Record<string, any> | null;
+  listing?: Record<string, any> | null;
+  questionnaire?: Record<string, any> | null;
+};
+
+type DueDiligenceReportResponse = {
+  status: string;
+  data: {
+    report: DueDiligenceReport | null;
+    order: DueDiligenceOrderContext;
+  };
+};
+
+export function useAdminDueDiligenceReport(groupId?: string) {
+  return useQuery({
+    queryKey: ["admin", "orders", groupId, "due-diligence-report"],
+    queryFn: async () => {
+      const { data } = await adminApi.get<DueDiligenceReportResponse>(
+        `/orders/${groupId}/due-diligence-report`
+      );
+      return data.data;
+    },
+    enabled: !!groupId,
+  });
+}
+
+export type DueDiligenceReportPayload = {
+  reportId?: string;
+  reportDate?: string;
+  clientName?: string;
+  analystName?: string;
+  confidenceLevel?: string;
+  executiveSummary?: string;
+  propertyOverview?: DueDiligencePropertyOverview;
+  valuationAnalysis?: DueDiligenceValuationAnalysis;
+  legalVerification?: DueDiligenceChecklistItem[];
+  surveyVerification?: DueDiligenceChecklistItem[];
+  marketContext?: DueDiligenceMarketContext;
+  finalVerdict?: DueDiligenceFinalVerdict;
+  attachments?: DueDiligenceAttachment[];
+  status?: string;
+};
+
+type DueDiligenceSaveVariables = {
+  groupId: string;
+  payload: DueDiligenceReportPayload;
+};
+
+export function useSaveDueDiligenceReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ groupId, payload }: DueDiligenceSaveVariables) => {
+      const { data } = await adminApi.put<DueDiligenceReportResponse>(
+        `/orders/${groupId}/due-diligence-report`,
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({
+        queryKey: [
+          "admin",
+          "orders",
+          variables.groupId,
+          "due-diligence-report",
+        ],
+      });
+    },
+  });
+}
 export function useUpdateQuestionnaireStatus() {
   const qc = useQueryClient();
   return useMutation({
