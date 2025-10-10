@@ -21,6 +21,7 @@ export interface TableProps {
   data: TableRow[];
   className?: string;
   emptyMessage?: string;
+  onRowClick?: (row: Record<string, unknown>) => void;
 }
 
 export function Table({
@@ -28,6 +29,7 @@ export function Table({
   data,
   className = "",
   emptyMessage = "No data available",
+  onRowClick,
 }: TableProps) {
   // Calculate equal width for all columns
   const columnWidth = `${100 / columns.length}%`;
@@ -75,9 +77,12 @@ export function Table({
             {data.map((row, rowIndex) => (
               <tr
                 key={rowIndex}
+                onClick={() => onRowClick?.(row)}
                 className={`border-b border-[#E5E5E5] ${
                   rowIndex % 2 === 0 ? "bg-[#4EA8A11F]" : "bg-[#4EA8A11F]"
-                } hover:bg-gray-100 transition-colors`}
+                } hover:bg-gray-100 transition-colors ${
+                  onRowClick ? "cursor-pointer" : ""
+                }`}
               >
                 {columns.map((column) => {
                   const cellValue = row[column.key];

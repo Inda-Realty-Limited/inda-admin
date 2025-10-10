@@ -1,11 +1,12 @@
-import { useAdminListings, type ListingFilters } from "@/api";
+import { useAdminListings, useDeleteListing, type ListingFilters } from "@/api";
 import CreateListingModal from "@/components/CreateListingModal";
 import { Pagination, Table, TableButton, TableColumn } from "@/components/ui";
 import { formatPrice } from "@/utils";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CiSearch } from "react-icons/ci";
+import { FiAlertTriangle, FiX } from "react-icons/fi";
 
 export default function ListingsView() {
   const router = useRouter();
@@ -15,7 +16,17 @@ export default function ListingsView() {
     sort: "-createdAt",
   });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingListingId, setEditingListingId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [deletingListingId, setDeletingListingId] = useState<string | null>(
+    null
+  );
   const { data, isLoading, isError, refetch } = useAdminListings(filters);
+
+  const deleteMutation = useDeleteListing(deletingListingId || "");
 
   function update<K extends keyof ListingFilters>(
     key: K,
@@ -28,6 +39,26 @@ export default function ListingsView() {
     }));
   }
 
+  // Execute delete when deletingListingId is set
+  useEffect(() => {
+    if (deletingListingId) {
+      deleteMutation.mutate(undefined, {
+        onSuccess: () => {
+          setDeletingListingId(null);
+          refetch();
+        },
+        onError: (error) => {
+          console.error("Delete error:", error);
+          alert(
+            "Failed to delete listing. Please try again or contact support."
+          );
+          setDeletingListingId(null);
+        },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deletingListingId]);
+
   // Calculate pagination data
   const currentPage = filters.page || 1;
   const itemsPerPage = filters.limit || 20;
@@ -35,15 +66,33 @@ export default function ListingsView() {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   // Action handlers
-  const handleFlag = useCallback((row: Record<string, unknown>) => {
-    console.log("Flag listing:", row);
-    // Implement flag functionality
+  const handleEdit = useCallback((row: Record<string, unknown>) => {
+    const id = typeof row["_id"] === "string" ? row["_id"] : null;
+    if (id) {
+      setEditingListingId(id);
+    }
   }, []);
 
   const handleDelete = useCallback((row: Record<string, unknown>) => {
-    console.log("Delete listing:", row);
-    // Implement delete functionality
+    const id = typeof row["_id"] === "string" ? row["_id"] : null;
+    const title =
+      typeof row["title"] === "string" ? row["title"] : "this listing";
+
+    if (!id) return;
+
+    setDeleteConfirm({ id, title });
   }, []);
+
+  const handleRowClick = useCallback(
+    (row: Record<string, unknown>) => {
+      const id = typeof row["_id"] === "string" ? row["_id"] : null;
+
+      if (id) {
+        router.push(`/dashboard/listings/${id}`);
+      }
+    },
+    [router]
+  );
 
   // Define table columns based on real API data structure
   const columns: TableColumn[] = useMemo(
@@ -73,6 +122,7 @@ export default function ListingsView() {
               href={url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
               className="text-[#4EA8A1] hover:underline font-medium"
               title={title}
             >
@@ -100,25 +150,7 @@ export default function ListingsView() {
         render: (value: unknown) =>
           typeof value === "string" && value.length > 0 ? value : "—",
       },
-      {
-        key: "bedrooms",
-        label: "Beds",
-        align: "center" as const,
-        render: (value: unknown) => (typeof value === "number" ? value : "—"),
-      },
-      {
-        key: "bathrooms",
-        label: "Baths",
-        align: "center" as const,
-        render: (value: unknown) => (typeof value === "number" ? value : "—"),
-      },
-      {
-        key: "sizeSqm",
-        label: "Size (sqm)",
-        align: "center" as const,
-        render: (value: unknown) =>
-          typeof value === "number" ? value.toLocaleString() : "—",
-      },
+
       {
         key: "priceNGN",
         label: "Price (NGN)",
@@ -149,95 +181,22 @@ export default function ListingsView() {
           );
         },
       },
-      {
-        key: "analytics",
-        label: "FMV (NGN)",
-        align: "right" as const,
-        render: (value: unknown) => {
-          let fmvValue: number | undefined;
-          if (value && typeof value === "object") {
-            const fmv = (value as Record<string, unknown>)["fmv"];
-            if (fmv && typeof fmv === "object") {
-              const v = (fmv as Record<string, unknown>)["valueNGN"];
-              if (typeof v === "number") fmvValue = v;
-            }
-          }
-          return typeof fmvValue === "number" ? (
-            <span className="font-medium">{formatPrice(fmvValue)}</span>
-          ) : (
-            "—"
-          );
-        },
-      },
-      {
-        key: "indaScore",
-        label: "Inda Score",
-        align: "center" as const,
-        render: (value: unknown) => {
-          let score: number | undefined;
-          if (value && typeof value === "object") {
-            const s = (value as Record<string, unknown>)["finalScore"];
-            if (typeof s === "number") score = s;
-          }
-          if (!score) return "—";
 
-          const getScoreColor = (score: number) => {
-            if (score >= 80) return "text-green-600 bg-green-100";
-            if (score >= 60) return "text-yellow-600 bg-yellow-100";
-            return "text-red-600 bg-red-100";
-          };
-
-          return (
-            <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${getScoreColor(
-                score
-              )}`}
-            >
-              {score}
-            </span>
-          );
-        },
-      },
-      {
-        key: "listingStatus",
-        label: "Status",
-        align: "center" as const,
-        render: (value: unknown) => {
-          const val = typeof value === "string" ? value : "";
-          const getStatusColor = (status: string) => {
-            switch (status) {
-              case "active":
-                return "text-green-600 bg-green-100";
-              case "sold":
-                return "text-blue-600 bg-blue-100";
-              default:
-                return "text-gray-600 bg-gray-100";
-            }
-          };
-
-          return (
-            <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                val
-              )}`}
-            >
-              {val || "Unknown"}
-            </span>
-          );
-        },
-      },
       {
         key: "actions",
         label: "Actions",
         align: "center" as const,
         render: (_value: unknown, row: Record<string, unknown>) => (
-          <div className="flex items-center justify-center gap-2">
+          <div
+            className="flex items-center justify-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
             <TableButton
-              variant="secondary"
+              variant="primary"
               size="sm"
-              onClick={() => handleFlag(row)}
+              onClick={() => handleEdit(row)}
             >
-              Flag
+              Edit
             </TableButton>
             <TableButton
               variant="danger"
@@ -246,20 +205,11 @@ export default function ListingsView() {
             >
               Delete
             </TableButton>
-            {typeof row["_id"] === "string" && (
-              <TableButton
-                variant="secondary"
-                size="sm"
-                onClick={() => router.push(`/dashboard/listings/${row["_id"]}`)}
-              >
-                View
-              </TableButton>
-            )}
           </div>
         ),
       },
     ],
-    [handleDelete, handleFlag, router]
+    [handleDelete, handleEdit]
   );
 
   return (
@@ -331,6 +281,7 @@ export default function ListingsView() {
             columns={columns}
             data={data?.items || []}
             emptyMessage="No listings found. Try adjusting your filters."
+            onRowClick={handleRowClick}
           />
         )}
 
@@ -351,8 +302,79 @@ export default function ListingsView() {
           onClose={() => setIsCreateOpen(false)}
           onSuccess={() => {
             refetch();
+            setIsCreateOpen(false);
           }}
         />
+      )}
+      {editingListingId && (
+        <CreateListingModal
+          listingId={editingListingId}
+          onClose={() => setEditingListingId(null)}
+          onSuccess={() => {
+            refetch();
+            setEditingListingId(null);
+          }}
+        />
+      )}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-2xl border border-red-200 overflow-hidden">
+            <div className="flex items-start justify-between gap-4 border-b border-red-200 bg-red-50 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                  <FiAlertTriangle className="text-red-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    Delete Listing
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    This action cannot be undone
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
+                type="button"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-gray-700 mb-2">
+                Are you sure you want to permanently delete this listing?
+              </p>
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mt-3">
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  {deleteConfirm.title}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  ID: {deleteConfirm.id}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setDeletingListingId(deleteConfirm.id);
+                  setDeleteConfirm(null);
+                }}
+                disabled={deleteMutation.isPending}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete Listing"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

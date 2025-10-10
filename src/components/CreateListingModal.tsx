@@ -1,5 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
-import { useCreateListing, type CreateListingPayload } from "@/api";
+import {
+  useAdminListing,
+  useCreateListing,
+  useUpdateListing,
+  type CreateListingPayload,
+} from "@/api";
 import type {
   InputHTMLAttributes,
   SelectHTMLAttributes,
@@ -18,6 +23,7 @@ import {
 } from "react-icons/fi";
 
 interface CreateListingModalProps {
+  listingId?: string; // If provided, modal is in edit mode
   onClose: () => void;
   onSuccess?: () => void;
 }
@@ -122,10 +128,17 @@ const defaultValues: FormValues = {
 };
 
 export default function CreateListingModal({
+  listingId,
   onClose,
   onSuccess,
 }: CreateListingModalProps) {
+  const isEditMode = !!listingId;
   const [step, setStep] = useState<Step>(0);
+
+  // Fetch existing listing data if in edit mode
+  const { data: existingListing, isLoading: _isLoadingListing } =
+    useAdminListing(listingId);
+
   const methods = useForm<FormValues>({
     mode: "onBlur",
     defaultValues,
@@ -138,14 +151,89 @@ export default function CreateListingModal({
     reset,
   } = methods;
 
-  const mutation = useCreateListing();
+  // Pre-fill form when existing listing loads
+  useEffect(() => {
+    if (existingListing && isEditMode) {
+      const listing = existingListing as Record<string, unknown>;
+      const agent = listing.agent as Record<string, unknown> | undefined;
+
+      reset({
+        title: typeof listing.title === "string" ? listing.title : "",
+        listingType:
+          listing.listingType === "sale" || listing.listingType === "rent"
+            ? listing.listingType
+            : "sale",
+        listingStatus:
+          typeof listing.listingStatus === "string"
+            ? listing.listingStatus
+            : "active",
+        propertyTypeStd:
+          typeof listing.propertyTypeStd === "string"
+            ? listing.propertyTypeStd
+            : "",
+        propertyRef:
+          typeof listing.propertyRef === "string" ? listing.propertyRef : "",
+        source: typeof listing.source === "string" ? listing.source : "admin",
+        description:
+          typeof listing.description === "string" ? listing.description : "",
+        state: typeof listing.state === "string" ? listing.state : "",
+        lga: typeof listing.lga === "string" ? listing.lga : "",
+        microlocationStd:
+          typeof listing.microlocationStd === "string"
+            ? listing.microlocationStd
+            : "",
+        address: typeof listing.address === "string" ? listing.address : "",
+        bedrooms:
+          typeof listing.bedrooms === "number" ? listing.bedrooms : null,
+        bathrooms:
+          typeof listing.bathrooms === "number" ? listing.bathrooms : null,
+        sizeSqm: typeof listing.sizeSqm === "number" ? listing.sizeSqm : null,
+        priceNGN:
+          typeof listing.priceNGN === "number" ? listing.priceNGN : null,
+        listingUrl:
+          typeof listing.listingUrl === "string" ? listing.listingUrl : "",
+        coverImageFile: null, // Images handled separately
+        galleryFiles: null,
+        agentName: typeof agent?.name === "string" ? agent.name : "",
+        agentPhone: typeof agent?.phone === "string" ? agent.phone : "",
+      });
+    }
+  }, [existingListing, isEditMode, reset]);
+
+  const createMutation = useCreateListing();
+  const updateMutation = useUpdateListing(listingId || "");
+  const mutation = isEditMode ? updateMutation : createMutation;
+
+  // Image preview states
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
   const coverInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const coverInputId = useId();
   const galleryInputId = useId();
+
+  // Load existing images from listing
+  useEffect(() => {
+    if (existingListing && isEditMode) {
+      const listing = existingListing as Record<string, unknown>;
+      const imageUrls = listing.imageUrls;
+
+      if (Array.isArray(imageUrls) && imageUrls.length > 0) {
+        const urls = imageUrls
+          .filter((url): url is string => typeof url === "string")
+          .filter((url) => url.trim().length > 0);
+        setExistingImages(urls);
+
+        // Set first image as cover preview if no new cover uploaded
+        if (urls.length > 0 && !coverPreview) {
+          // Don't set coverPreview here, we'll show existing separately
+        }
+      }
+    }
+  }, [existingListing, isEditMode, coverPreview]);
 
   const coverFileList = methods.watch("coverImageFile");
   const galleryFileList = methods.watch("galleryFiles");
@@ -197,7 +285,7 @@ export default function CreateListingModal({
     : undefined;
 
   const coverImageRegister = register("coverImageFile", {
-    required: "Cover image is required",
+    required: isEditMode ? false : "Cover image is required",
     validate: {
       isImage: (files: FileList | null) => {
         if (!files || files.length === 0) return true;
@@ -211,7 +299,7 @@ export default function CreateListingModal({
   });
 
   const galleryRegister = register("galleryFiles", {
-    required: "Add at least one gallery image",
+    required: isEditMode ? false : "Add at least one gallery image",
     validate: {
       isImage: (files: FileList | null) => {
         if (!files || files.length === 0) return true;
@@ -285,7 +373,7 @@ export default function CreateListingModal({
   const onSubmit = handleSubmit(async (values) => {
     setUploadError(null);
     try {
-      const payload = toPayload(values);
+      const payload = toPayload(values, isEditMode);
       await mutation.mutateAsync(payload);
       onSuccess?.();
       handleClose();
@@ -301,11 +389,11 @@ export default function CreateListingModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-6">
-      <div className="w-full max-w-4xl rounded-2xl bg-white shadow-2xl border border-[#4EA8A1]/20 overflow-hidden">
-        <header className="flex items-start justify-between gap-4 border-b border-[#4EA8A1]/20 bg-gradient-to-r from-[#E8F5F4] to-white px-6 py-5">
+      <div className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-[#4EA8A1]/20 overflow-hidden">
+        <header className="flex-shrink-0 flex items-start justify-between gap-4 border-b border-[#4EA8A1]/20 bg-gradient-to-r from-[#E8F5F4] to-white px-6 py-5">
           <div>
             <h2 className="text-xl font-bold text-gray-900">
-              Add a manual listing
+              {isEditMode ? "Edit listing" : "Add a manual listing"}
             </h2>
             <p className="text-sm text-gray-600">
               Step {step + 1} of 3 — {steps[step].description}
@@ -321,12 +409,15 @@ export default function CreateListingModal({
           </button>
         </header>
 
-        <div className="px-6 pt-6">
+        <div className="flex-shrink-0 px-6 pt-6">
           <StepIndicator current={step} />
         </div>
 
         <FormProvider {...methods}>
-          <form onSubmit={onSubmit} className="px-6 pb-6 pt-4 space-y-6">
+          <form
+            onSubmit={onSubmit}
+            className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 pt-4 space-y-6"
+          >
             {step === 0 && (
               <div className="grid gap-5 md:grid-cols-2">
                 <TextField
@@ -580,12 +671,29 @@ export default function CreateListingModal({
                       {coverImageErrorMessage}
                     </p>
                   )}
+                  {/* Show existing cover image in edit mode */}
+                  {isEditMode && existingImages.length > 0 && !coverPreview && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-600">
+                        Current cover image:
+                      </p>
+                      <img
+                        src={existingImages[0]}
+                        alt="Current cover"
+                        className="h-32 w-full rounded-lg border border-gray-200 object-cover"
+                      />
+                    </div>
+                  )}
+                  {/* Show new cover preview */}
                   {coverPreview && (
-                    <img
-                      src={coverPreview}
-                      alt="Cover preview"
-                      className="h-48 w-full rounded-lg border border-gray-200 object-cover"
-                    />
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-600">New cover image:</p>
+                      <img
+                        src={coverPreview}
+                        alt="Cover preview"
+                        className="h-32 w-full rounded-lg border border-gray-200 object-cover"
+                      />
+                    </div>
                   )}
                 </div>
 
@@ -655,20 +763,52 @@ export default function CreateListingModal({
                       {galleryErrorMessage}
                     </p>
                   )}
-                  {galleryPreviews.length > 0 && (
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      {galleryPreviews.map((preview, idx) => (
-                        <div
-                          key={`${preview}-${idx}`}
-                          className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
-                        >
-                          <img
-                            src={preview}
-                            alt={`Gallery preview ${idx + 1}`}
-                            className="h-32 w-full object-cover"
-                          />
+                  {/* Show existing gallery images in edit mode */}
+                  {isEditMode && existingImages.length > 1 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-600">
+                        Current gallery ({existingImages.length - 1} images):
+                      </p>
+                      <div className="max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          {existingImages.slice(1).map((url, idx) => (
+                            <div
+                              key={`existing-${idx}`}
+                              className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                            >
+                              <img
+                                src={url}
+                                alt={`Existing ${idx + 1}`}
+                                className="h-24 w-full object-cover"
+                              />
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Show new gallery previews */}
+                  {galleryPreviews.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-600">
+                        New gallery images ({galleryPreviews.length}):
+                      </p>
+                      <div className="max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          {galleryPreviews.map((preview, idx) => (
+                            <div
+                              key={`${preview}-${idx}`}
+                              className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                            >
+                              <img
+                                src={preview}
+                                alt={`Gallery preview ${idx + 1}`}
+                                className="h-24 w-full object-cover"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -739,7 +879,11 @@ export default function CreateListingModal({
                     disabled={mutation.isPending}
                     className="inline-flex items-center gap-2 rounded-lg bg-[#4EA8A1] px-5 py-2 text-sm font-bold text-white hover:bg-[#3d8882] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {mutation.isPending ? "Saving..." : "Create listing"}
+                    {mutation.isPending
+                      ? "Saving..."
+                      : isEditMode
+                      ? "Update listing"
+                      : "Create listing"}
                     {!mutation.isPending && <FiCheck size={16} />}
                   </button>
                 )}
@@ -752,15 +896,22 @@ export default function CreateListingModal({
   );
 }
 
-function toPayload(values: FormValues): CreateListingPayload {
+function toPayload(
+  values: FormValues,
+  isEditMode = false
+): CreateListingPayload {
   const coverFile = values.coverImageFile?.item(0) ?? null;
-  if (!coverFile) {
+
+  // In edit mode, cover image is optional (existing one will be kept)
+  if (!isEditMode && !coverFile) {
     throw new Error("Cover image is required before publishing.");
   }
 
   const galleryList = values.galleryFiles;
   const galleryFiles = galleryList ? Array.from(galleryList) : [];
-  if (galleryFiles.length === 0) {
+
+  // In edit mode, gallery images are optional (existing ones will be kept)
+  if (!isEditMode && galleryFiles.length === 0) {
     throw new Error("Please add at least one gallery image before publishing.");
   }
 
@@ -793,10 +944,15 @@ function toPayload(values: FormValues): CreateListingPayload {
     formData.append("listingUrl", values.listingUrl);
   }
 
-  formData.append("coverImage", coverFile, coverFile.name);
-  galleryFiles.forEach((file) => {
-    formData.append("gallery", file, file.name);
-  });
+  // Only append new images if they were uploaded
+  if (coverFile) {
+    formData.append("coverImage", coverFile, coverFile.name);
+  }
+  if (galleryFiles.length > 0) {
+    galleryFiles.forEach((file) => {
+      formData.append("gallery", file, file.name);
+    });
+  }
 
   const agentPayload = {
     name: values.agentName,

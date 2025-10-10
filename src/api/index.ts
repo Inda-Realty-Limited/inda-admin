@@ -222,6 +222,45 @@ export function useCreateListing() {
   });
 }
 
+// Update listing (metadata via JSON or images via FormData)
+type UpdateListingPayload = FormData | Record<string, unknown>;
+
+export function useUpdateListing(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: UpdateListingPayload) => {
+      const { data } = await adminApi.patch<CreateListingResponse>(
+        `/listings/${id}`,
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "listings"] });
+      qc.invalidateQueries({ queryKey: ["admin", "listing", id] });
+    },
+  });
+}
+
+// Delete listing
+type DeleteListingResponse = { status: string; message?: string };
+
+export function useDeleteListing(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await adminApi.delete<DeleteListingResponse>(
+        `/listings/${id}`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "listings"] });
+      qc.invalidateQueries({ queryKey: ["admin", "listing", id] });
+    },
+  });
+}
+
 // ---- Users ----
 type AnyUser = Record<string, unknown>;
 type UsersResponse = { status: string; data: PageList<AnyUser> };
@@ -1218,7 +1257,11 @@ export function useAdminProcessedListing(id?: string) {
 
 // Scrape Job Types
 export type ScrapeJobStatus = "queued" | "running" | "success" | "error";
-export type ScrapeJobType = "npc-recent-30-days" | "process-raw-listings";
+export type ScrapeJobType =
+  | "npc-recent-30-days"
+  | "propertypro-recent"
+  | "propertypro-batch"
+  | "process-raw-listings";
 
 export type ScrapeJob = {
   jobId: string;
@@ -1286,6 +1329,132 @@ export function useQueueRecentScrape() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "scrape-jobs"] });
+    },
+  });
+}
+
+// ---- Unified Scraping (NPC & PropertyPro) ----
+
+// NPC filters type
+export type NPCFilters = {
+  listingType?: "for-sale" | "for-rent" | "shortlet"; // sale, rent, shortlet
+  state?: string; // e.g., "lagos", "abuja"
+  area?: string; // e.g., "ikoyi", "lekki"
+  propertyType?: string; // e.g., "flat-apartment", "detached-duplex"
+  bedrooms?: number;
+  minPrice?: number;
+  maxPrice?: number;
+};
+
+// PropertyPro filters type
+export type PropertyProFilters = {
+  type?: string; // e.g., "flat-apartment", "detached-duplex"
+  bedroom?: number;
+  min_price?: number;
+  max_price?: number;
+  search?: string;
+  extra?: Record<string, string | number | boolean>;
+};
+
+// Unified scrape payload (can be NPC or PropertyPro)
+export type UnifiedScrapePayload = {
+  source: "npc" | "propertypro";
+  maxPages?: number;
+  limit?: number;
+  headers?: Record<string, string>;
+  cookie?: string;
+  userAgent?: string;
+} & (
+  | { source: "npc"; filters: NPCFilters }
+  | { source: "propertypro"; filters: PropertyProFilters }
+);
+
+type UnifiedScrapeResponse = {
+  status: string;
+  data: {
+    totalFetched: number;
+    inserted: number;
+    skippedExisting: number;
+    failed: number;
+    results: any[];
+  };
+};
+
+// POST /admin/scrape/listings - unified sync scraping
+export function useUnifiedScrape() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: UnifiedScrapePayload) => {
+      const { data } = await adminApi.post<UnifiedScrapeResponse>(
+        "/scrape/listings",
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "raw-listings"] });
+    },
+  });
+}
+
+// Queue PropertyPro recent job
+export type QueuePropertyProRecentPayload = {
+  limit?: number;
+  maxPages?: number;
+  url?: string;
+  headers?: Record<string, string>;
+  cookie?: string;
+  userAgent?: string;
+};
+
+export function useQueuePropertyProRecent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: QueuePropertyProRecentPayload) => {
+      const { data } = await adminApi.post<QueueScrapeResponse>(
+        "/scrape/property-pro/recent",
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "scrape-jobs"] });
+    },
+  });
+}
+
+// PropertyPro batch scraping
+export type PropertyProBatchPayload = {
+  queries: Array<PropertyProFilters & { maxPages?: number; limit?: number }>;
+  maxPages?: number; // global default
+  limit?: number; // global default
+  headers?: Record<string, string>;
+  cookie?: string;
+  userAgent?: string;
+};
+
+type PropertyProBatchResponse = {
+  status: string;
+  data: {
+    jobId: string;
+    status: string;
+    message: string;
+  };
+};
+
+export function usePropertyProBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: PropertyProBatchPayload) => {
+      const { data } = await adminApi.post<PropertyProBatchResponse>(
+        "/scrape/property-pro/batch",
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "scrape-jobs"] });
+      qc.invalidateQueries({ queryKey: ["admin", "raw-listings"] });
     },
   });
 }
