@@ -1,16 +1,10 @@
-
 import {
   useAdminListing,
   useCreateListing,
   useUpdateListing,
   type CreateListingPayload,
 } from "@/api";
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   FiArrowLeft,
@@ -27,7 +21,6 @@ interface CreateListingModalProps {
 }
 
 type FormValues = {
-  // Text fields
   indaTag: string;
   listingPlatformUrl: string;
   size: string;
@@ -50,8 +43,6 @@ type FormValues = {
   zoningCompliance: string;
   developmentApprovalCheck: string;
   encumbrances: string;
-
-  // Uploads
   titleDocs?: FileList | null;
   legalDocs?: FileList | null;
   propertyImages?: FileList | null;
@@ -103,25 +94,21 @@ export default function CreateListingModal({
   const isEditMode = !!listingId;
   const [step, setStep] = useState<Step>(0);
 
-  const { data: existingListing } = useAdminListing(listingId);
+  const { data: existingListing, isLoading } = useAdminListing(listingId);
   const methods = useForm<FormValues>({ mode: "onBlur", defaultValues });
-  const {
-    register,
-    handleSubmit,
-    trigger,
-    formState: { errors },
-    reset,
-  } = methods;
-
-  useEffect(() => {
-    if (existingListing && isEditMode) {
-      reset({ ...defaultValues, ...existingListing });
-    }
-  }, [existingListing, isEditMode, reset]);
+  const { register, handleSubmit, trigger, reset, watch, formState } = methods;
 
   const createMutation = useCreateListing();
   const updateMutation = useUpdateListing(listingId || "");
   const mutation = isEditMode ? updateMutation : createMutation;
+
+  // ✅ Populate form once existing data is loaded
+  useEffect(() => {
+    if (existingListing && isEditMode && !isLoading) {
+      console.log("Populating form with existing listing:", existingListing);
+      reset({ ...defaultValues, ...existingListing });
+    }
+  }, [existingListing, isEditMode, isLoading, reset]);
 
   const goNext = async () => {
     const valid = await trigger();
@@ -139,32 +126,42 @@ export default function CreateListingModal({
 
   const onSubmit = handleSubmit(async (values) => {
     const payload = toPayload(values);
-    await mutation.mutateAsync(payload);
-    onSuccess?.();
-    handleClose();
+    console.log("Submitting listing payload...");
+
+    try {
+      await mutation.mutateAsync(payload);
+      console.log("✅ Listing saved successfully");
+      onSuccess?.();
+      handleClose(); // only closes on success
+    } catch (error) {
+      console.error("❌ Error creating/updating listing:", error);
+      alert("Error while saving listing. Please try again.");
+    }
   });
 
-  // Upload previews (optional)
+  // Image Previews
   const [propertyPreviews, setPropertyPreviews] = useState<string[]>([]);
   const [amenityPreviews, setAmenityPreviews] = useState<string[]>([]);
 
   useEffect(() => {
-    const files = methods.watch("propertyImages");
-    if (files?.length) {
-      const urls = Array.from(files).map((f) => URL.createObjectURL(f));
-      setPropertyPreviews(urls);
-      return () => urls.forEach((u) => URL.revokeObjectURL(u));
-    }
-  }, [methods.watch("propertyImages")]);
-
-  useEffect(() => {
-    const files = methods.watch("amenityImages");
-    if (files?.length) {
-      const urls = Array.from(files).map((f) => URL.createObjectURL(f));
-      setAmenityPreviews(urls);
-      return () => urls.forEach((u) => URL.revokeObjectURL(u));
-    }
-  }, [methods.watch("amenityImages")]);
+    const subscription = watch((value, { name }) => {
+      if (name === "propertyImages" && value.propertyImages) {
+        const urls = Array.from(value.propertyImages).map((f) =>
+          URL.createObjectURL(f)
+        );
+        setPropertyPreviews(urls);
+        return () => urls.forEach((u) => URL.revokeObjectURL(u));
+      }
+      if (name === "amenityImages" && value.amenityImages) {
+        const urls = Array.from(value.amenityImages).map((f) =>
+          URL.createObjectURL(f)
+        );
+        setAmenityPreviews(urls);
+        return () => urls.forEach((u) => URL.revokeObjectURL(u));
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [watch]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-6">
@@ -195,13 +192,10 @@ export default function CreateListingModal({
         <FormProvider {...methods}>
           <form
             onSubmit={onSubmit}
-            onKeyDown={(e) => {
-              // Prevent accidental form submit with Enter
-              if (e.key === "Enter") e.preventDefault();
-            }}
+            onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
             className="flex-1 overflow-y-auto px-6 pb-6 pt-4 space-y-6 custom-scrollbar"
           >
-            {/* STEP 1: BASIC INFO */}
+            {/* STEP 1 */}
             {step === 0 && (
               <div className="grid gap-5 md:grid-cols-2">
                 {[
@@ -228,7 +222,7 @@ export default function CreateListingModal({
               </div>
             )}
 
-            {/* STEP 2: VERIFICATION */}
+            {/* STEP 2 */}
             {step === 1 && (
               <div className="grid gap-5 md:grid-cols-2">
                 {[
@@ -251,23 +245,17 @@ export default function CreateListingModal({
               </div>
             )}
 
-            {/* STEP 3: UPLOADS */}
+            {/* STEP 3 */}
             {step === 2 && (
               <div className="space-y-8">
-                {/* TOP ROW: TITLE & LEGAL DOCS */}
                 <div className="grid gap-6 md:grid-cols-2">
                   <UploadBox label="Title Documents" {...register("titleDocs")} multiple />
-                  <UploadBox label="Upload Other Legal Docs" {...register("legalDocs")} multiple />
+                  <UploadBox label="Legal Documents" {...register("legalDocs")} multiple />
                 </div>
 
-                {/* PROPERTY IMAGES */}
                 <div>
-                  <h3 className="text-[#4EA8A1] font-semibold mb-3">
-                    Property Images
-                  </h3>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <UploadBox label="Image 1" {...register("propertyImages")} multiple />
-                  </div>
+                  <h3 className="text-[#4EA8A1] font-semibold mb-3">Property Images</h3>
+                  <UploadBox label="Property Images" {...register("propertyImages")} multiple />
                   {propertyPreviews.length > 0 && (
                     <div className="grid grid-cols-3 gap-3 mt-3">
                       {propertyPreviews.map((url, i) => (
@@ -275,24 +263,16 @@ export default function CreateListingModal({
                           key={i}
                           src={url}
                           className="rounded-lg border object-cover h-28 w-full"
-                          alt={`Preview ${i}`}
+                          alt={`Property Preview ${i}`}
                         />
                       ))}
                     </div>
                   )}
                 </div>
 
-                {/* AMENITIES */}
                 <div>
-                  <h3 className="text-[#4EA8A1] font-semibold mb-3">
-                    Amenities
-                  </h3>
-                  <div className="grid gap-4 sm:grid-cols-4">
-                    <UploadBox label="Swimming Pool" {...register("amenityImages")} multiple />
-                    <UploadBox label="Security" {...register("amenityImages")} multiple />
-                    <UploadBox label="Accessible Roads" {...register("amenityImages")} multiple />
-                    <UploadBox label="24 Hours Elec" {...register("amenityImages")} multiple />
-                  </div>
+                  <h3 className="text-[#4EA8A1] font-semibold mb-3">Amenity Images</h3>
+                  <UploadBox label="Amenity Images" {...register("amenityImages")} multiple />
                   {amenityPreviews.length > 0 && (
                     <div className="grid grid-cols-4 gap-3 mt-3">
                       {amenityPreviews.map((url, i) => (
@@ -300,7 +280,7 @@ export default function CreateListingModal({
                           key={i}
                           src={url}
                           className="rounded-lg border object-cover h-24 w-full"
-                          alt={`Preview ${i}`}
+                          alt={`Amenity Preview ${i}`}
                         />
                       ))}
                     </div>
@@ -347,23 +327,25 @@ export default function CreateListingModal({
   );
 }
 
-/* ------------------------ HELPERS ------------------------- */
+/* ------------------ HELPERS ------------------ */
 function toPayload(values: FormValues): CreateListingPayload {
   const formData = new FormData();
+
   Object.entries(values).forEach(([key, value]) => {
-    if (value instanceof FileList) return;
-    if (value) formData.append(key, value as string);
+    if (value && !(value instanceof FileList)) {
+      formData.append(key, value as string);
+    }
   });
 
-  const appendFiles = (files: FileList | null, key: string) => {
+  const appendFiles = (files: FileList | null | undefined, key: string) => {
     if (!files) return;
-    Array.from(files).forEach((file) => formData.append(key, file, file.name));
+    Array.from(files).forEach((file) => formData.append(key, file));
   };
 
-  // appendFiles(values.titleDocs, "titleDocs");
-  // appendFiles(values.legalDocs, "legalDocs");
-  // appendFiles(values.propertyImages, "propertyImages");
-  // appendFiles(values.amenityImages, "amenityImages");
+  appendFiles(values.titleDocs, "titleDocs");
+  appendFiles(values.legalDocs, "legalDocs");
+  appendFiles(values.propertyImages, "propertyImages");
+  appendFiles(values.amenityImages, "amenityImages");
 
   return formData;
 }
@@ -402,9 +384,14 @@ function StepIndicator({ current }: { current: Step }) {
   );
 }
 
-const TextField = ({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
+const TextField = ({
+  label,
+  ...props
+}: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
   <label className="block text-left">
-    <span className="text-xs font-bold uppercase tracking-wider text-gray-600">{label}</span>
+    <span className="text-xs font-bold uppercase tracking-wider text-gray-600">
+      {label}
+    </span>
     <input
       type="text"
       className="mt-1 w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-900 focus:border-[#4EA8A1] focus:ring-2 focus:ring-[#4EA8A1]/20 outline-none"
@@ -421,9 +408,19 @@ const UploadBox = ({
   label: string;
   multiple?: boolean;
 } & React.InputHTMLAttributes<HTMLInputElement>) => (
-  <label className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:border-[#4EA8A1] hover:bg-[#E8F5F4] px-6 py-8 text-center cursor-pointer">
+  <label
+    className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:border-[#4EA8A1] hover:bg-[#E8F5F4] px-6 py-8 text-center cursor-pointer"
+    onClick={(e) => e.stopPropagation()} // 🧠 prevent bubbling that closes modal
+  >
     <FiUpload className="text-[#4EA8A1]" size={24} />
     <span className="text-sm font-semibold text-gray-700">{label}</span>
-    <input type="file" className="hidden" multiple={multiple} {...props} />
+    <input
+      type="file"
+      className="hidden"
+      multiple={multiple}
+      {...props}
+      onClick={(e) => e.stopPropagation()} // ✅ double protection
+    />
   </label>
 );
+

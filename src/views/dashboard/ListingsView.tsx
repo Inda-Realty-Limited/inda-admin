@@ -17,21 +17,13 @@ export default function ListingsView() {
   });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingListingId, setEditingListingId] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{
-    id: string;
-    title: string;
-  } | null>(null);
-  const [deletingListingId, setDeletingListingId] = useState<string | null>(
-    null
-  );
-  const { data, isLoading, isError, refetch } = useAdminListings(filters);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [deletingListingId, setDeletingListingId] = useState<string | null>(null);
 
+  const { data, isLoading, isError, refetch } = useAdminListings(filters);
   const deleteMutation = useDeleteListing(deletingListingId || "");
 
-  function update<K extends keyof ListingFilters>(
-    key: K,
-    val: ListingFilters[K]
-  ) {
+  function update<K extends keyof ListingFilters>(key: K, val: ListingFilters[K]) {
     setFilters((f) => ({
       ...f,
       [key]: val,
@@ -39,7 +31,6 @@ export default function ListingsView() {
     }));
   }
 
-  // Execute delete when deletingListingId is set
   useEffect(() => {
     if (deletingListingId) {
       deleteMutation.mutate(undefined, {
@@ -49,52 +40,38 @@ export default function ListingsView() {
         },
         onError: (error) => {
           console.error("Delete error:", error);
-          alert(
-            "Failed to delete listing. Please try again or contact support."
-          );
+          alert("Failed to delete listing. Please try again or contact support.");
           setDeletingListingId(null);
         },
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deletingListingId]);
+  }, [deletingListingId, deleteMutation, refetch]);
 
-  // Calculate pagination data
   const currentPage = filters.page || 1;
   const itemsPerPage = filters.limit || 20;
   const totalItems = data?.total || 0;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
-  // Action handlers
   const handleEdit = useCallback((row: Record<string, unknown>) => {
     const id = typeof row["_id"] === "string" ? row["_id"] : null;
-    if (id) {
-      setEditingListingId(id);
-    }
+    if (id) setEditingListingId(id);
   }, []);
 
   const handleDelete = useCallback((row: Record<string, unknown>) => {
     const id = typeof row["_id"] === "string" ? row["_id"] : null;
-    const title =
-      typeof row["title"] === "string" ? row["title"] : "this listing";
-
-    if (!id) return;
-
-    setDeleteConfirm({ id, title });
+    const title = typeof row["indatag"] === "string" ? row["indatag"] : "this listing";
+    if (id) setDeleteConfirm({ id, title });
   }, []);
 
   const handleRowClick = useCallback(
     (row: Record<string, unknown>) => {
       const id = typeof row["_id"] === "string" ? row["_id"] : null;
-
-      if (id) {
-        router.push(`/dashboard/listings/${id}`);
-      }
+      if (id) router.push(`/dashboard/listings/${id}`);
     },
     [router]
   );
 
-  // Define table columns based on real API data structure
+  // ✅ Updated columns — mapped exactly as requested
   const columns: TableColumn[] = useMemo(
     () => [
       {
@@ -106,37 +83,16 @@ export default function ListingsView() {
         },
       },
       {
-        key: "title",
+        key: "indaTag",
         label: "Title",
-        render: (_value: unknown, row: Record<string, unknown>) => {
-          const t = row["title"];
-          const title = typeof t === "string" && t.length > 0 ? t : "Untitled";
-          const urlVal = row["listingUrl"];
-          const url =
-            typeof urlVal === "string" && urlVal.length > 0
-              ? urlVal
-              : undefined;
-
-          return url ? (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-[#4EA8A1] hover:underline font-medium"
-              title={title}
-            >
-              {title}
-            </a>
-          ) : (
-            <span className="font-medium" title={title}>
-              {title}
-            </span>
-          );
-        },
+        render: (value: unknown) => (
+          <span className="font-medium text-gray-900" title={String(value || "Untitled")}>
+            {typeof value === "string" && value.length > 0 ? value : "Untitled"}
+          </span>
+        ),
       },
       {
-        key: "propertyRef",
+        key: "indaTag",
         label: "Ref ID",
         render: (value: unknown) => (
           <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
@@ -145,43 +101,31 @@ export default function ListingsView() {
         ),
       },
       {
-        key: "propertyTypeStd",
+        key: "propertyType",
         label: "Type",
         render: (value: unknown) =>
           typeof value === "string" && value.length > 0 ? value : "—",
       },
-
       {
-        key: "priceNGN",
-        label: "Price (NGN)",
+        key: "purchasePrice",
+        label: "Price",
         align: "right" as const,
         render: (value: unknown) =>
-          typeof value === "number" ? (
+          typeof value === "string" ? (
             <span className="font-medium">{formatPrice(value)}</span>
           ) : (
             "—"
           ),
       },
       {
-        key: "microlocationStd",
+        key: "microlocation",
         label: "Location",
-        render: (value: unknown, row: Record<string, unknown>) => {
-          const lgaVal = row["lga"];
-          const strVal =
-            typeof value === "string" && value.length > 0 ? value : undefined;
-          const lga =
-            typeof lgaVal === "string" && lgaVal.length > 0
-              ? lgaVal
-              : undefined;
-          const location = strVal || lga || "—";
-          return (
-            <span title={location} className="truncate">
-              {location}
-            </span>
-          );
-        },
+        render: (value: unknown) => (
+          <span title={String(value || "—")} className="truncate">
+            {typeof value === "string" && value.length > 0 ? value : "—"}
+          </span>
+        ),
       },
-
       {
         key: "actions",
         label: "Actions",
@@ -191,18 +135,10 @@ export default function ListingsView() {
             className="flex items-center justify-center gap-2"
             onClick={(e) => e.stopPropagation()}
           >
-            <TableButton
-              variant="primary"
-              size="sm"
-              onClick={() => handleEdit(row)}
-            >
+            <TableButton variant="primary" size="sm" onClick={() => handleEdit(row)}>
               Edit
             </TableButton>
-            <TableButton
-              variant="danger"
-              size="sm"
-              onClick={() => handleDelete(row)}
-            >
+            <TableButton variant="danger" size="sm" onClick={() => handleDelete(row)}>
               Delete
             </TableButton>
           </div>
@@ -218,6 +154,8 @@ export default function ListingsView() {
         <Head>
           <title>Listings — Inda Admin</title>
         </Head>
+
+        {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold">All Listings</h1>
@@ -226,12 +164,12 @@ export default function ListingsView() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#4EA8A1]/90 transition-colors text-sm">
+            <button className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#4EA8A1]/90 text-sm">
               Export Data
             </button>
             <button
-              className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#3F8C86] transition-colors text-sm"
               onClick={() => setIsCreateOpen(true)}
+              className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg hover:bg-[#3F8C86] text-sm"
             >
               Add Listing
             </button>
@@ -244,28 +182,20 @@ export default function ListingsView() {
           </div>
         </div>
 
-        {/* Search Filter */}
+        {/* Search */}
         <div className="border border-[#4EA8A1] text-[#4EA8A1] flex items-center h-11 rounded-lg px-3">
           <CiSearch size={18} className="mr-2" />
           <input
             className="w-full border-none focus:outline-none placeholder:text-[#4EA8A1]"
-            placeholder="Search by title or URL"
+            placeholder="Search by title or Ref ID"
             value={filters.q || ""}
             onChange={(e) => update("q", e.target.value)}
           />
         </div>
 
-        {/* Advanced Filter */}
-        <div>
-          <button className="inline-flex items-center gap-2 px-4 py-2 bg-transparent border border-[#4EA8A1] text-[#4EA8A1] rounded-lg hover:bg-[#4EA8A1] hover:text-white transition-colors w-fit">
-            <span className="text-sm">⚙️</span>
-            Advanced Filter
-          </button>
-        </div>
-
-        {/* Loading and Error States */}
+        {/* Loading / Error / Table */}
         {isLoading && (
-          <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-500">
+          <div className="rounded-lg border bg-white p-8 text-center text-gray-500">
             Loading listings...
           </div>
         )}
@@ -275,17 +205,15 @@ export default function ListingsView() {
           </div>
         )}
 
-        {/* Table */}
         {!isLoading && !isError && (
           <Table
             columns={columns}
             data={data?.items || []}
-            emptyMessage="No listings found. Try adjusting your filters."
+            emptyMessage="No listings found."
             onRowClick={handleRowClick}
           />
         )}
 
-        {/* Pagination */}
         {!isLoading && !isError && totalItems > 0 && (
           <Pagination
             currentPage={currentPage}
@@ -297,6 +225,8 @@ export default function ListingsView() {
           />
         )}
       </div>
+
+      {/* Modals */}
       {isCreateOpen && (
         <CreateListingModal
           onClose={() => setIsCreateOpen(false)}
@@ -306,6 +236,7 @@ export default function ListingsView() {
           }}
         />
       )}
+
       {editingListingId && (
         <CreateListingModal
           listingId={editingListingId}
@@ -316,21 +247,19 @@ export default function ListingsView() {
           }}
         />
       )}
+
+      {/* Delete Confirmation */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="w-full max-w-md rounded-xl bg-white shadow-2xl border border-red-200 overflow-hidden">
-            <div className="flex items-start justify-between gap-4 border-b border-red-200 bg-red-50 px-6 py-4">
+            <div className="flex items-start justify-between border-b border-red-200 bg-red-50 px-6 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
                   <FiAlertTriangle className="text-red-600" size={20} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    Delete Listing
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    This action cannot be undone
-                  </p>
+                  <h3 className="text-lg font-bold text-gray-900">Delete Listing</h3>
+                  <p className="text-sm text-gray-600">This action cannot be undone</p>
                 </div>
               </div>
               <button
@@ -347,18 +276,14 @@ export default function ListingsView() {
                 Are you sure you want to permanently delete this listing?
               </p>
               <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mt-3">
-                <p className="text-sm font-semibold text-gray-900 truncate">
-                  {deleteConfirm.title}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  ID: {deleteConfirm.id}
-                </p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{deleteConfirm.title}</p>
+                <p className="text-xs text-gray-500 mt-1">ID: {deleteConfirm.id}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
@@ -368,7 +293,7 @@ export default function ListingsView() {
                   setDeleteConfirm(null);
                 }}
                 disabled={deleteMutation.isPending}
-                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
               >
                 {deleteMutation.isPending ? "Deleting..." : "Delete Listing"}
               </button>

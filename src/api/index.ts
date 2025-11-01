@@ -14,10 +14,10 @@ import {
 } from "@tanstack/react-query";
 import axios, { type AxiosError, type AxiosRequestHeaders } from "axios";
 
-// Prefer local network base URL if available (fallback to previous hosted URL)
+
 const BASE_URL =
   process.env.NEXT_PUBLIC_ADMIN_API_BASE ||
-  "https://inda-core-backend-services.onrender.com"; // prior hosted: https://inda-core-backend-services.onrender.com
+  "https://pcphc7xyrz.us-east-1.awsapprunner.com"; // prior hosted: https://inda-core-backend-services.onrender.com
 
 export const adminApi = axios.create({
   baseURL: BASE_URL + "/admin",
