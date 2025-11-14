@@ -82,15 +82,15 @@ export default function ListingsView() {
           return typeof src === "string" && src.length > 0 ? src : "Admin";
         },
       },
-      {
-        key: "indaTag",
-        label: "Title",
-        render: (value: unknown) => (
-          <span className="font-medium text-gray-900" title={String(value || "Untitled")}>
-            {typeof value === "string" && value.length > 0 ? value : "Untitled"}
-          </span>
-        ),
-      },
+      // {
+      //   key: "title",
+      //   label: "title",
+      //   render: (value: unknown) => (
+      //     <span className="font-medium text-gray-900" title={String(value || "Untitled")}>
+      //       {typeof value === "string" && value.length > 0 ? value : "Untitled"}
+      //     </span>
+      //   ),
+      // },
       {
         key: "indaTag",
         label: "Ref ID",
