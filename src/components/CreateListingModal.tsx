@@ -235,8 +235,14 @@ export default function CreateListingModal({
     setReviewsError(null);
 
     try {
+      const token = localStorage.getItem("admin_token"); 
       const url = `https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/reviews?page=${currentPage}&limit=50&status=all&sortBy=recent`;
-      const response = await fetch(url);
+      const response = await fetch(url,{
+method: "GET",
+  headers: {
+    "Authorization": `Bearer ${token}`,
+  },
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch reviews: ${response.statusText}`);
