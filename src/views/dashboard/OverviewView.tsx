@@ -144,7 +144,7 @@ export default function OverviewView() {
   }, []);
 
   const raItems = recentActivity;
-const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -152,10 +152,13 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     formData.append("file", file);
 
     try {
-      const res = await fetch("https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/upload-csv", {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(
+        "https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/upload-csv",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       const data = await res.json();
       console.log("Upload response:", data);
@@ -241,19 +244,19 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             Add listing
           </Link>
           <label
-  htmlFor="csvUpload"
-  className="cursor-pointer rounded-lg border border-black/20 px-4 py-2 text-sm bg-transparent hover:bg-black/5 flex items-center gap-2"
->
-  <FiUpload className="w-4 h-4" />
-  Upload CSV
-  <input
-    id="csvUpload"
-    type="file"
-    accept=".csv"
-    onChange={handleFileChange}
-    className="hidden"
-  />
-</label>
+            htmlFor="csvUpload"
+            className="cursor-pointer rounded-lg border border-black/20 px-4 py-2 text-sm bg-transparent hover:bg-black/5 flex items-center gap-2"
+          >
+            <FiUpload className="w-4 h-4" />
+            Upload CSV
+            <input
+              id="csvUpload"
+              type="file"
+              accept=".csv"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </label>
 
           <Link
             href="#"

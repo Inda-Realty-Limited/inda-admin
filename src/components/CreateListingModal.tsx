@@ -9,11 +9,47 @@ import {
   FiFile,
 } from "react-icons/fi";
 
-// Mock hooks - replace with your actual API hooks
-const useAdminListing = (id?: string) => ({
-  data: null,
-  isLoading: false,
-});
+// Actual API hook
+const useAdminListing = (id?: string) => {
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!id) {
+      setData(null);
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchListing = async () => {
+      setIsLoading(true);
+      try {
+        const token = localStorage.getItem("admin_token");
+        const response = await fetch(`https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/listings/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch listing: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        setData(result.data || result);
+      } catch (error) {
+        console.error("Error fetching listing:", error);
+        setData(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchListing();
+  }, [id]);
+
+  return { data, isLoading };
+};
 
 // Generate MongoDB-like ObjectId
 const generateMongoId = () =>
@@ -30,7 +66,7 @@ interface CreateListingModalProps {
 type FormValues = {
   indaTag: string;
   listingPlatformUrl: string;
-  title:string;
+  title: string;
   size: string;
   amenities: string;
   propertyType: string[];
@@ -144,7 +180,7 @@ const propertySubTypeOptions = [
 ];
 
 const defaultValues: FormValues = {
-  title:"",
+  title: "",
   indaTag: "",
   listingPlatformUrl: "",
   size: "",
@@ -206,10 +242,49 @@ export default function CreateListingModal({
 
   const { data: existingListing, isLoading } = useAdminListing(listingId);
 
+  // ✅ PREFILL FORM DATA IN EDIT MODE
   useEffect(() => {
     if (existingListing && isEditMode && !isLoading) {
-      // existingListing may be typed as null/unknown from the hook; cast to Partial<FormValues>
-      setFormData({ ...defaultValues, ...(existingListing as Partial<FormValues>) });
+      console.log("📝 Prefilling form with existing listing:", existingListing);
+      
+      // Handle arrays properly - convert comma-separated strings to arrays if needed
+      const propertyTypeArray = Array.isArray(existingListing.propertyType)
+        ? existingListing.propertyType
+        : typeof existingListing.propertyType === "string"
+        ? existingListing.propertyType.split(",").map((s: string) => s.trim())
+        : [];
+
+      const propertySubTypeArray = Array.isArray(existingListing.propertySubType)
+        ? existingListing.propertySubType
+        : typeof existingListing.propertySubType === "string"
+        ? existingListing.propertySubType.split(",").map((s: string) => s.trim())
+        : [];
+
+      setFormData({
+        indaTag: existingListing.indaTag || "",
+        listingPlatformUrl: existingListing.listingPlatformUrl || "",
+        title: existingListing.title || "",
+        size: existingListing.size || "",
+        amenities: existingListing.amenities || "",
+        propertyType: propertyTypeArray,
+        propertySubType: propertySubTypeArray,
+        bedrooms: existingListing.bedrooms || "",
+        bathrooms: existingListing.bathrooms || "",
+        fullAddress: existingListing.fullAddress || "",
+        microlocation: existingListing.microlocation || "",
+        buildYear: existingListing.buildYear || "",
+        condition: existingListing.condition || "",
+        currentOwnerSeller: existingListing.currentOwnerSeller || "",
+        sellerIndaTag: existingListing.sellerIndaTag || "",
+        listingLink: existingListing.listingLink || "",
+        purchasePrice: existingListing.purchasePrice || "",
+        titleVerification: existingListing.titleVerification || "",
+        litigationCheck: existingListing.litigationCheck || "",
+        surveyPlanVerification: existingListing.surveyPlanVerification || "",
+        zoningCompliance: existingListing.zoningCompliance || "",
+        developmentApprovalCheck: existingListing.developmentApprovalCheck || "",
+        encumbrances: existingListing.encumbrances || "",
+      });
     }
   }, [existingListing, isEditMode, isLoading]);
 
@@ -235,13 +310,13 @@ export default function CreateListingModal({
     setReviewsError(null);
 
     try {
-      const token = localStorage.getItem("admin_token"); 
+      const token = localStorage.getItem("admin_token");
       const url = `https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/reviews?page=${currentPage}&limit=50&status=all&sortBy=recent`;
-      const response = await fetch(url,{
-method: "GET",
-  headers: {
-    "Authorization": `Bearer ${token}`,
-  },
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (!response.ok) {
@@ -259,7 +334,9 @@ method: "GET",
       }
     } catch (error) {
       console.error("Error fetching reviews:", error);
-      setReviewsError(error instanceof Error ? error.message : "Failed to load reviews");
+      setReviewsError(
+        error instanceof Error ? error.message : "Failed to load reviews"
+      );
       setReviews([]);
     } finally {
       setReviewsLoading(false);
@@ -325,10 +402,12 @@ method: "GET",
 
   const handleClose = () => {
     // Clean up file previews
-    [...titleDocs, ...legalDocs, ...propertyImages, ...amenityImages].forEach((f) => {
-      URL.revokeObjectURL(f.preview);
-    });
-    
+    [...titleDocs, ...legalDocs, ...propertyImages, ...amenityImages].forEach(
+      (f) => {
+        URL.revokeObjectURL(f.preview);
+      }
+    );
+
     setFormData(defaultValues);
     setTitleDocs([]);
     setLegalDocs([]);
@@ -347,6 +426,7 @@ method: "GET",
       // Append basic form data
       formDataToSend.append("indaTag", formData.indaTag);
       formDataToSend.append("listingPlatformUrl", formData.listingPlatformUrl);
+      formDataToSend.append("title", formData.title);
       formDataToSend.append("size", formData.size);
       formDataToSend.append("amenities", formData.amenities);
       formDataToSend.append("propertyType", formData.propertyType.join(","));
@@ -357,6 +437,7 @@ method: "GET",
       formDataToSend.append("microlocation", formData.microlocation);
       formDataToSend.append("buildYear", formData.buildYear);
       formDataToSend.append("condition", formData.condition);
+      formDataToSend.append("currentOwnerSeller", formData.currentOwnerSeller);
       formDataToSend.append("sellerIndaTag", formData.sellerIndaTag);
       formDataToSend.append("listingLink", formData.listingLink);
       formDataToSend.append("purchasePrice", formData.purchasePrice);
@@ -365,6 +446,7 @@ method: "GET",
       formDataToSend.append("surveyPlanVerification", formData.surveyPlanVerification);
       formDataToSend.append("zoningCompliance", formData.zoningCompliance);
       formDataToSend.append("developmentApprovalCheck", formData.developmentApprovalCheck);
+      formDataToSend.append("encumbrances", formData.encumbrances);
 
       // Append files
       titleDocs.forEach((doc) => {
@@ -383,39 +465,52 @@ method: "GET",
         formDataToSend.append("amenityImages", img.file);
       });
 
-      const token = localStorage.getItem("admin_token"); 
+      const token = localStorage.getItem("admin_token");
+      
+      // ✅ Use PUT for edit mode, POST for create mode
+      const url = isEditMode
+        ? `https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/listings/${listingId}`
+        : "https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/listings";
+      
+      const method = isEditMode ? "PATCH" : "POST";
 
-const response = await fetch("https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/listings", {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${token}`,
-  },
-  body: formDataToSend,
-});
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formDataToSend,
+      });
 
-if (!response.ok) {
-  throw new Error(`HTTP error! status: ${response.status}`);
-}
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-const result = await response.json();
+      const result = await response.json();
 
-if (result.success) {
-  alert("✅ Listing created successfully!");
-  onSuccess?.();
-  handleClose();
-} else {
-  throw new Error(result.message || "Failed to create listing");
-}
-
+      if (result.success) {
+        alert(`✅ Listing ${isEditMode ? "updated" : "created"} successfully!`);
+        onSuccess?.();
+        handleClose();
+      } else {
+        throw new Error(result.message || `Failed to ${isEditMode ? "update" : "create"} listing`);
+      }
     } catch (error) {
-      console.error("❌ Error creating listing:", error);
-      alert(`Error: ${error instanceof Error ? error.message : "Failed to create listing"}`);
+      console.error(`❌ Error ${isEditMode ? "updating" : "creating"} listing:`, error);
+      alert(
+        `Error: ${
+          error instanceof Error ? error.message : `Failed to ${isEditMode ? "update" : "create"} listing`
+        }`
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleReviewAction = async (reviewId: string, action: "approve" | "reject") => {
+  const handleReviewAction = async (
+    reviewId: string,
+    action: "approve" | "reject"
+  ) => {
     try {
       console.log(`${action} review:`, reviewId);
       fetchReviews();
@@ -446,6 +541,20 @@ if (result.success) {
     return `${"⭐".repeat(fullStars)} (${rating.toFixed(1)})`;
   };
 
+  // Show loading state while fetching existing listing in edit mode
+  if (isEditMode && isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl p-8 shadow-2xl">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#4EA8A1] border-t-transparent"></div>
+            <p className="text-gray-600 font-medium">Loading listing data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-6">
       <div className="w-full max-w-6xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-[#4EA8A1]/20 overflow-hidden">
@@ -453,11 +562,15 @@ if (result.success) {
         <header className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">
-              Property Listings Management
+              {isEditMode ? "Edit Listing" : "Create New Listing"}
             </h2>
-            <p className="text-sm text-gray-500">Last Updated: 14/11/2025</p>
+            <button
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <FiX size={24} />
+            </button>
           </div>
-
           {/* Tabs */}
           <div className="mt-4 flex gap-6 border-b border-gray-200">
             {[
@@ -490,7 +603,11 @@ if (result.success) {
               {/* STEP 1 */}
               {step === 0 && (
                 <div className="grid gap-5 md:grid-cols-2">
-                  <TextField label="Inda Tag" value={formData.indaTag} readOnly />
+                  <TextField
+                    label="Inda Tag"
+                    value={formData.indaTag}
+                    readOnly
+                  />
 
                   <TextField
                     label="Listing Platform Url"
@@ -507,7 +624,9 @@ if (result.success) {
                   <TextField
                     label="Amenities"
                     value={formData.amenities}
-                    onChange={(e) => handleInputChange("amenities", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("amenities", e.target.value)
+                    }
                   />
 
                   {/* Property Type Dropdown */}
@@ -518,7 +637,9 @@ if (result.success) {
                       </span>
                       <button
                         type="button"
-                        onClick={() => setPropertyDropdownOpen(!propertyDropdownOpen)}
+                        onClick={() =>
+                          setPropertyDropdownOpen(!propertyDropdownOpen)
+                        }
                         className="mt-1 w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 text-sm font-medium text-left flex items-center justify-between focus:border-[#4EA8A1] focus:ring-2 focus:ring-[#4EA8A1]/20 outline-none bg-white"
                       >
                         <span
@@ -554,7 +675,9 @@ if (result.success) {
                                 onChange={() => togglePropertyType(option)}
                                 className="w-4 h-4 rounded border-gray-300 text-[#4EA8A1] focus:ring-[#4EA8A1]"
                               />
-                              <span className="text-sm text-gray-700">{option}</span>
+                              <span className="text-sm text-gray-700">
+                                {option}
+                              </span>
                             </label>
                           ))}
                         </div>
@@ -571,7 +694,9 @@ if (result.success) {
                       <button
                         type="button"
                         onClick={() =>
-                          setPropertySubTypeDropdownOpen(!propertySubTypeDropdownOpen)
+                          setPropertySubTypeDropdownOpen(
+                            !propertySubTypeDropdownOpen
+                          )
                         }
                         className="mt-1 w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 text-sm font-medium text-left flex items-center justify-between focus:border-[#4EA8A1] focus:ring-2 focus:ring-[#4EA8A1]/20 outline-none bg-white"
                       >
@@ -604,11 +729,15 @@ if (result.success) {
                             >
                               <input
                                 type="checkbox"
-                                checked={formData.propertySubType.includes(option)}
+                                checked={formData.propertySubType.includes(
+                                  option
+                                )}
                                 onChange={() => togglePropertySubType(option)}
                                 className="w-4 h-4 rounded border-gray-300 text-[#4EA8A1] focus:ring-[#4EA8A1]"
                               />
-                              <span className="text-sm text-gray-700">{option}</span>
+                              <span className="text-sm text-gray-700">
+                                {option}
+                              </span>
                             </label>
                           ))}
                         </div>
@@ -624,12 +753,16 @@ if (result.success) {
                       </span>
                       <button
                         type="button"
-                        onClick={() => setBedroomDropdownOpen(!bedroomDropdownOpen)}
+                        onClick={() =>
+                          setBedroomDropdownOpen(!bedroomDropdownOpen)
+                        }
                         className="mt-1 w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 text-sm font-medium text-left flex items-center justify-between focus:border-[#4EA8A1] focus:ring-2 focus:ring-[#4EA8A1]/20 outline-none bg-white"
                       >
                         <span
                           className={
-                            formData.bedrooms ? "text-gray-900" : "text-gray-400"
+                            formData.bedrooms
+                              ? "text-gray-900"
+                              : "text-gray-400"
                           }
                         >
                           {formData.bedrooms || "Select No of Bedrooms"}
@@ -659,7 +792,9 @@ if (result.success) {
                                 }}
                                 className="w-4 h-4 rounded border-gray-300 text-[#4EA8A1] focus:ring-[#4EA8A1]"
                               />
-                              <span className="text-sm text-gray-700">{option}</span>
+                              <span className="text-sm text-gray-700">
+                                {option}
+                              </span>
                             </label>
                           ))}
                         </div>
@@ -675,12 +810,16 @@ if (result.success) {
                       </span>
                       <button
                         type="button"
-                        onClick={() => setBathroomDropdownOpen(!bathroomDropdownOpen)}
+                        onClick={() =>
+                          setBathroomDropdownOpen(!bathroomDropdownOpen)
+                        }
                         className="mt-1 w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 text-sm font-medium text-left flex items-center justify-between focus:border-[#4EA8A1] focus:ring-2 focus:ring-[#4EA8A1]/20 outline-none bg-white"
                       >
                         <span
                           className={
-                            formData.bathrooms ? "text-gray-900" : "text-gray-400"
+                            formData.bathrooms
+                              ? "text-gray-900"
+                              : "text-gray-400"
                           }
                         >
                           {formData.bathrooms || "Select No of Bathrooms"}
@@ -710,7 +849,9 @@ if (result.success) {
                                 }}
                                 className="w-4 h-4 rounded border-gray-300 text-[#4EA8A1] focus:ring-[#4EA8A1]"
                               />
-                              <span className="text-sm text-gray-700">{option}</span>
+                              <span className="text-sm text-gray-700">
+                                {option}
+                              </span>
                             </label>
                           ))}
                         </div>
@@ -720,22 +861,30 @@ if (result.success) {
                   <TextField
                     label="Full Address"
                     value={formData.fullAddress}
-                    onChange={(e) => handleInputChange("fullAddress", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("fullAddress", e.target.value)
+                    }
                   />
                   <TextField
                     label="Microlocation"
                     value={formData.microlocation}
-                    onChange={(e) => handleInputChange("microlocation", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("microlocation", e.target.value)
+                    }
                   />
                   <TextField
                     label="Build Year"
                     value={formData.buildYear}
-                    onChange={(e) => handleInputChange("buildYear", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("buildYear", e.target.value)
+                    }
                   />
                   <TextField
                     label="Condition"
                     value={formData.condition}
-                    onChange={(e) => handleInputChange("condition", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("condition", e.target.value)
+                    }
                   />
                   <TextField
                     label="Current Owner Seller"
@@ -789,13 +938,17 @@ if (result.success) {
                     <FileUploadBox
                       label="Title Documents"
                       files={titleDocs}
-                      onFileSelect={(files) => handleFileSelect(files, setTitleDocs)}
+                      onFileSelect={(files) =>
+                        handleFileSelect(files, setTitleDocs)
+                      }
                       onRemove={(index) => removeFile(index, setTitleDocs)}
                     />
                     <FileUploadBox
                       label="Legal Documents"
                       files={legalDocs}
-                      onFileSelect={(files) => handleFileSelect(files, setLegalDocs)}
+                      onFileSelect={(files) =>
+                        handleFileSelect(files, setLegalDocs)
+                      }
                       onRemove={(index) => removeFile(index, setLegalDocs)}
                     />
                   </div>
@@ -806,7 +959,9 @@ if (result.success) {
                     <FileUploadBox
                       label="Property Images"
                       files={propertyImages}
-                      onFileSelect={(files) => handleFileSelect(files, setPropertyImages)}
+                      onFileSelect={(files) =>
+                        handleFileSelect(files, setPropertyImages)
+                      }
                       onRemove={(index) => removeFile(index, setPropertyImages)}
                       accept="image/*"
                     />
@@ -818,7 +973,9 @@ if (result.success) {
                     <FileUploadBox
                       label="Amenity Images"
                       files={amenityImages}
-                      onFileSelect={(files) => handleFileSelect(files, setAmenityImages)}
+                      onFileSelect={(files) =>
+                        handleFileSelect(files, setAmenityImages)
+                      }
                       onRemove={(index) => removeFile(index, setAmenityImages)}
                       accept="image/*"
                     />
@@ -1006,7 +1163,12 @@ if (result.success) {
                       <input
                         type="checkbox"
                         checked={filters[filter as keyof typeof filters]}
-                        onChange={(e) => setFilters(prev => ({...prev, [filter]: e.target.checked}))}
+                        onChange={(e) =>
+                          setFilters((prev) => ({
+                            ...prev,
+                            [filter]: e.target.checked,
+                          }))
+                        }
                         className="w-4 h-4 rounded border-gray-300 text-[#4EA8A1]"
                       />
                       {filter.charAt(0).toUpperCase() + filter.slice(1)}
@@ -1066,31 +1228,48 @@ if (result.success) {
                       <tbody className="divide-y divide-gray-200">
                         {reviews.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                            <td
+                              colSpan={7}
+                              className="px-4 py-8 text-center text-gray-500"
+                            >
                               No reviews found
                             </td>
                           </tr>
                         ) : (
                           reviews.map((review) => (
-                            <tr key={review._id} className="hover:bg-gray-50 transition">
+                            <tr
+                              key={review._id}
+                              className="hover:bg-gray-50 transition"
+                            >
                               <td className="px-4 py-3 text-gray-800 font-medium">
-                                {review.userId?.firstName} {review.userId?.lastName}
+                                {review.userId?.firstName}{" "}
+                                {review.userId?.lastName}
                                 <br />
-                                <span className="text-xs text-gray-500">{review.userId?.email}</span>
+                                <span className="text-xs text-gray-500">
+                                  {review.userId?.email}
+                                </span>
                               </td>
                               <td className="px-4 py-3 text-gray-700">
-                                <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                                  review.transactionType === "Bought" 
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-blue-100 text-blue-700"
-                                }`}>
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-semibold ${
+                                    review.transactionType === "Bought"
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}
+                                >
                                   {review.transactionType}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-2">
-                                  <span className={`rounded-md px-2 py-1 text-xs font-semibold text-gray-800 ${getRatingColor(review.ratings?.averageRating || 0)}`}>
-                                    {getRatingStars(review.ratings?.averageRating || 0)}
+                                  <span
+                                    className={`rounded-md px-2 py-1 text-xs font-semibold text-gray-800 ${getRatingColor(
+                                      review.ratings?.averageRating || 0
+                                    )}`}
+                                  >
+                                    {getRatingStars(
+                                      review.ratings?.averageRating || 0
+                                    )}
                                   </span>
                                 </div>
                               </td>
@@ -1100,50 +1279,66 @@ if (result.success) {
                                 </span>
                               </td>
                               <td className="px-4 py-3 text-gray-700 max-w-xs">
-                                <div className="truncate" title={review.detailedFeedback}>
+                                <div
+                                  className="truncate"
+                                  title={review.detailedFeedback}
+                                >
                                   {review.detailedFeedback}
                                 </div>
                                 {review.tags && review.tags.length > 0 && (
                                   <div className="flex gap-1 mt-1 flex-wrap">
-                                    {review.tags.map((tag: string, idx: number) => (
-                                      <span key={idx} className="text-xs bg-gray-200 px-2 py-0.5 rounded">
-                                        {tag}
-                                      </span>
-                                    ))}
+                                    {review.tags.map(
+                                      (tag: string, idx: number) => (
+                                        <span
+                                          key={idx}
+                                          className="text-xs bg-gray-200 px-2 py-0.5 rounded"
+                                        >
+                                          {tag}
+                                        </span>
+                                      )
+                                    )}
                                   </div>
                                 )}
                               </td>
                               <td className="px-4 py-3">
-                                <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                                  review.status === "approved" 
-                                    ? "bg-green-100 text-green-700"
-                                    : review.status === "rejected"
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-yellow-100 text-yellow-700"
-                                }`}>
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-semibold ${
+                                    review.status === "approved"
+                                      ? "bg-green-100 text-green-700"
+                                      : review.status === "rejected"
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-yellow-100 text-yellow-700"
+                                  }`}
+                                >
                                   {review.status}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-2 text-xs">
-                                  <button 
-                                    onClick={() => window.open(review.listingUrl, '_blank')}
+                                  <button
+                                    onClick={() =>
+                                      window.open(review.listingUrl, "_blank")
+                                    }
                                     className="text-[#5DABA4] font-semibold hover:underline"
                                   >
                                     View
                                   </button>
                                   <span className="text-gray-400">|</span>
-                                  <button 
-                                    onClick={() => handleReviewAction(review._id, 'approve')}
-                                    disabled={review.status === 'approved'}
+                                  <button
+                                    onClick={() =>
+                                      handleReviewAction(review._id, "approve")
+                                    }
+                                    disabled={review.status === "approved"}
                                     className="text-[#5DABA4] font-semibold hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     Approve
                                   </button>
                                   <span className="text-gray-400">|</span>
-                                  <button 
-                                    onClick={() => handleReviewAction(review._id, 'reject')}
-                                    disabled={review.status === 'rejected'}
+                                  <button
+                                    onClick={() =>
+                                      handleReviewAction(review._id, "reject")
+                                    }
+                                    disabled={review.status === "rejected"}
                                     className="text-red-500 font-semibold hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     Reject
@@ -1161,18 +1356,23 @@ if (result.success) {
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between pt-4">
                       <p className="text-sm text-gray-600">
-                        Showing page {currentPage} of {totalPages} ({totalResults} total reviews)
+                        Showing page {currentPage} of {totalPages} (
+                        {totalResults} total reviews)
                       </p>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          onClick={() =>
+                            setCurrentPage((p) => Math.max(1, p - 1))
+                          }
                           disabled={currentPage === 1}
                           className="px-3 py-1 rounded border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Previous
                         </button>
                         <button
-                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          onClick={() =>
+                            setCurrentPage((p) => Math.min(totalPages, p + 1))
+                          }
                           disabled={currentPage === totalPages}
                           className="px-3 py-1 rounded border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -1279,7 +1479,11 @@ const FileUploadBox = ({
               className="relative rounded-lg overflow-hidden border border-gray-200 bg-white"
             >
               {f.file.type.startsWith("image/") ? (
-                <img src={f.preview} alt={f.file.name} className="h-24 w-full object-cover" />
+                <img
+                  src={f.preview}
+                  alt={f.file.name}
+                  className="h-24 w-full object-cover"
+                />
               ) : (
                 <div className="flex h-24 items-center justify-center">
                   <FiFile size={24} className="text-gray-500" />
@@ -1293,7 +1497,9 @@ const FileUploadBox = ({
               >
                 <FiX size={14} />
               </button>
-              <div className="p-2 text-xs text-gray-600 truncate">{f.file.name}</div>
+              <div className="p-2 text-xs text-gray-600 truncate">
+                {f.file.name}
+              </div>
             </div>
           ))}
         </div>
