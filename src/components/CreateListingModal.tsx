@@ -25,7 +25,7 @@ const useAdminListing = (id?: string) => {
       setIsLoading(true);
       try {
         const token = localStorage.getItem("admin_token");
-        const response = await fetch(`http://localhost:9009/admin/listings/${id}`, {
+        const response = await fetch(`https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/listings/${id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
