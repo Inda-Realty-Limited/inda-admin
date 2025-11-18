@@ -17,21 +17,13 @@ export default function ListingsView() {
   });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingListingId, setEditingListingId] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{
-    id: string;
-    title: string;
-  } | null>(null);
-  const [deletingListingId, setDeletingListingId] = useState<string | null>(
-    null
-  );
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [deletingListingId, setDeletingListingId] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useAdminListings(filters);
   const deleteMutation = useDeleteListing(deletingListingId || "");
 
-  function update<K extends keyof ListingFilters>(
-    key: K,
-    val: ListingFilters[K]
-  ) {
+  function update<K extends keyof ListingFilters>(key: K, val: ListingFilters[K]) {
     setFilters((f) => ({
       ...f,
       [key]: val,
@@ -40,22 +32,23 @@ export default function ListingsView() {
   }
 
   useEffect(() => {
-    if (deletingListingId) {
-      deleteMutation.mutate(undefined, {
-        onSuccess: () => {
-          setDeletingListingId(null);
-          refetch();
-        },
-        onError: (error) => {
-          console.error("Delete error:", error);
-          alert(
-            "Failed to delete listing. Please try again or contact support."
-          );
-          setDeletingListingId(null);
-        },
-      });
-    }
-  }, [deletingListingId, deleteMutation, refetch]);
+  if (!deletingListingId) return;
+  let alreadyCalled = false;
+
+  if (!alreadyCalled) {
+    alreadyCalled = true;
+    deleteMutation.mutate(undefined, {
+      onSuccess: () => {
+        setDeletingListingId(null);
+        refetch();
+      },
+      onError: () => {
+        setDeletingListingId(null);
+      },
+    });
+  }
+}, [deletingListingId]);
+
 
   const currentPage = filters.page || 1;
   const itemsPerPage = filters.limit || 20;
@@ -69,8 +62,7 @@ export default function ListingsView() {
 
   const handleDelete = useCallback((row: Record<string, unknown>) => {
     const id = typeof row["_id"] === "string" ? row["_id"] : null;
-    const title =
-      typeof row["indatag"] === "string" ? row["indatag"] : "this listing";
+    const title = typeof row["indatag"] === "string" ? row["indatag"] : "this listing";
     if (id) setDeleteConfirm({ id, title });
   }, []);
 
@@ -146,18 +138,10 @@ export default function ListingsView() {
             className="flex items-center justify-center gap-2"
             onClick={(e) => e.stopPropagation()}
           >
-            <TableButton
-              variant="primary"
-              size="sm"
-              onClick={() => handleEdit(row)}
-            >
+            <TableButton variant="primary" size="sm" onClick={() => handleEdit(row)}>
               Edit
             </TableButton>
-            <TableButton
-              variant="danger"
-              size="sm"
-              onClick={() => handleDelete(row)}
-            >
+            <TableButton variant="danger" size="sm" onClick={() => handleDelete(row)}>
               Delete
             </TableButton>
           </div>
@@ -277,12 +261,8 @@ export default function ListingsView() {
                   <FiAlertTriangle className="text-red-600" size={20} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    Delete Listing
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    This action cannot be undone
-                  </p>
+                  <h3 className="text-lg font-bold text-gray-900">Delete Listing</h3>
+                  <p className="text-sm text-gray-600">This action cannot be undone</p>
                 </div>
               </div>
               <button
@@ -299,12 +279,8 @@ export default function ListingsView() {
                 Are you sure you want to permanently delete this listing?
               </p>
               <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mt-3">
-                <p className="text-sm font-semibold text-gray-900 truncate">
-                  {deleteConfirm.title}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  ID: {deleteConfirm.id}
-                </p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{deleteConfirm.title}</p>
+                <p className="text-xs text-gray-500 mt-1">ID: {deleteConfirm.id}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
