@@ -95,7 +95,7 @@ export default function Review() {
       const token = localStorage.getItem("admin_token");
 
       const response = await fetch(
-        `http://localhost:9009/admin/reviews/${reviewId}/moderate`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/reviews/${reviewId}/moderate`,
         {
           method: "PATCH",
           headers: {
