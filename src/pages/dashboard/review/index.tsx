@@ -56,7 +56,7 @@ export default function Review() {
 
     try {
       const token = localStorage.getItem("admin_token");
-      const url = `http://localhost:9009/admin/reviews?page=${currentPage}&limit=50&status=all&sortBy=recent`;
+      const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/reviews?page=${currentPage}&limit=50&status=all&sortBy=recent`;
 
       const response = await fetch(url, {
         method: "GET",
