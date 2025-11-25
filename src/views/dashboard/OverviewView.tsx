@@ -46,7 +46,41 @@ export default function OverviewView() {
 
   // Fetch admin overview data
   const { data, isLoading, isError } = useAdminOverview();
+  const [reviewTotal, setReviewTotal] = useState(0);
+
   // Cards per design
+
+  const fetchReviewStats = async () => {
+    try {
+      const token = localStorage.getItem("admin_token");
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/reviews?page=1&limit=1&status=all&sortBy=recent`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      return data?.data?.pagination?.totalResults ?? 0;
+    } catch (error) {
+      console.error("Error fetching review stats:", error);
+      return 0;
+    }
+  };
+  useEffect(() => {
+    const loadStats = async () => {
+      const reviewCount = await fetchReviewStats();
+      setReviewTotal(reviewCount);
+    };
+
+    loadStats();
+  }, []);
+
   const cards = useMemo(() => {
     return [
       {
@@ -77,6 +111,13 @@ export default function OverviewView() {
         href: "/dashboard/transactions",
         buttonText: "Manage Transactions",
         isCurrency: false,
+      },
+      {
+        label: "Reviews",
+        value: reviewTotal,
+        delta: 0,
+        href: "/dashboard/review",
+        buttonText: "Manage Reviews",
       },
     ];
   }, [data]);
@@ -153,7 +194,7 @@ export default function OverviewView() {
 
     try {
       const res = await fetch(
-        "https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/upload-csv",
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/upload-csv`,
         {
           method: "POST",
           body: formData,

@@ -8,8 +8,10 @@ import {
   FiX,
   FiFile,
 } from "react-icons/fi";
+import { AutoCalculatedTab } from "../pages/dashboard/auto-calculated";
+import { ReviewsTab } from "../pages/dashboard/reviews";
+import { AISummariesTab } from "../pages/dashboard/ai-summaries";
 
-// Actual API hook
 const useAdminListing = (id?: string) => {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,11 +27,14 @@ const useAdminListing = (id?: string) => {
       setIsLoading(true);
       try {
         const token = localStorage.getItem("admin_token");
-        const response = await fetch(`https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/listings/${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/listings/${id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
         if (!response.ok) {
           throw new Error(`Failed to fetch listing: ${response.statusText}`);
@@ -212,10 +217,13 @@ export default function CreateListingModal({
 }: CreateListingModalProps) {
   const isEditMode = !!listingId;
   const [step, setStep] = useState<Step>(0);
-  const [activeTab, setActiveTab] = useState<"admin" | "auto" | "ai" | "reviews">("admin");
+  const [activeTab, setActiveTab] = useState<
+    "admin" | "auto" | "ai" | "reviews"
+  >("admin");
   const [formData, setFormData] = useState<FormValues>(defaultValues);
   const [propertyDropdownOpen, setPropertyDropdownOpen] = useState(false);
-  const [propertySubTypeDropdownOpen, setPropertySubTypeDropdownOpen] = useState(false);
+  const [propertySubTypeDropdownOpen, setPropertySubTypeDropdownOpen] =
+    useState(false);
   const [bedroomDropdownOpen, setBedroomDropdownOpen] = useState(false);
   const [bathroomDropdownOpen, setBathroomDropdownOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -242,11 +250,10 @@ export default function CreateListingModal({
 
   const { data: existingListing, isLoading } = useAdminListing(listingId);
 
-  // ✅ PREFILL FORM DATA IN EDIT MODE
   useEffect(() => {
     if (existingListing && isEditMode && !isLoading) {
       console.log("📝 Prefilling form with existing listing:", existingListing);
-      
+
       // Handle arrays properly - convert comma-separated strings to arrays if needed
       const propertyTypeArray = Array.isArray(existingListing.propertyType)
         ? existingListing.propertyType
@@ -254,10 +261,14 @@ export default function CreateListingModal({
         ? existingListing.propertyType.split(",").map((s: string) => s.trim())
         : [];
 
-      const propertySubTypeArray = Array.isArray(existingListing.propertySubType)
+      const propertySubTypeArray = Array.isArray(
+        existingListing.propertySubType
+      )
         ? existingListing.propertySubType
         : typeof existingListing.propertySubType === "string"
-        ? existingListing.propertySubType.split(",").map((s: string) => s.trim())
+        ? existingListing.propertySubType
+            .split(",")
+            .map((s: string) => s.trim())
         : [];
 
       setFormData({
@@ -282,7 +293,8 @@ export default function CreateListingModal({
         litigationCheck: existingListing.litigationCheck || "",
         surveyPlanVerification: existingListing.surveyPlanVerification || "",
         zoningCompliance: existingListing.zoningCompliance || "",
-        developmentApprovalCheck: existingListing.developmentApprovalCheck || "",
+        developmentApprovalCheck:
+          existingListing.developmentApprovalCheck || "",
         encumbrances: existingListing.encumbrances || "",
       });
     }
@@ -311,7 +323,7 @@ export default function CreateListingModal({
 
     try {
       const token = localStorage.getItem("admin_token");
-      const url = `https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/reviews?page=${currentPage}&limit=50&status=all&sortBy=recent`;
+      const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/reviews?page=${currentPage}&limit=50&status=all&sortBy=recent`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -430,7 +442,10 @@ export default function CreateListingModal({
       formDataToSend.append("size", formData.size);
       formDataToSend.append("amenities", formData.amenities);
       formDataToSend.append("propertyType", formData.propertyType.join(","));
-      formDataToSend.append("propertySubType", formData.propertySubType.join(","));
+      formDataToSend.append(
+        "propertySubType",
+        formData.propertySubType.join(",")
+      );
       formDataToSend.append("bedrooms", formData.bedrooms);
       formDataToSend.append("bathrooms", formData.bathrooms);
       formDataToSend.append("fullAddress", formData.fullAddress);
@@ -443,9 +458,15 @@ export default function CreateListingModal({
       formDataToSend.append("purchasePrice", formData.purchasePrice);
       formDataToSend.append("titleVerification", formData.titleVerification);
       formDataToSend.append("litigationCheck", formData.litigationCheck);
-      formDataToSend.append("surveyPlanVerification", formData.surveyPlanVerification);
+      formDataToSend.append(
+        "surveyPlanVerification",
+        formData.surveyPlanVerification
+      );
       formDataToSend.append("zoningCompliance", formData.zoningCompliance);
-      formDataToSend.append("developmentApprovalCheck", formData.developmentApprovalCheck);
+      formDataToSend.append(
+        "developmentApprovalCheck",
+        formData.developmentApprovalCheck
+      );
       formDataToSend.append("encumbrances", formData.encumbrances);
 
       // Append files
@@ -466,12 +487,11 @@ export default function CreateListingModal({
       });
 
       const token = localStorage.getItem("admin_token");
-      
-      // ✅ Use PUT for edit mode, POST for create mode
+
       const url = isEditMode
-        ? `https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/listings/${listingId}`
-        : "https://pcphc7xyrz.us-east-1.awsapprunner.com/admin/listings";
-      
+        ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/listings/${listingId}`
+        : `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/listings`;
+
       const method = isEditMode ? "PATCH" : "POST";
 
       const response = await fetch(url, {
@@ -493,13 +513,21 @@ export default function CreateListingModal({
         onSuccess?.();
         handleClose();
       } else {
-        throw new Error(result.message || `Failed to ${isEditMode ? "update" : "create"} listing`);
+        throw new Error(
+          result.message ||
+            `Failed to ${isEditMode ? "update" : "create"} listing`
+        );
       }
     } catch (error) {
-      console.error(`❌ Error ${isEditMode ? "updating" : "creating"} listing:`, error);
+      console.error(
+        `❌ Error ${isEditMode ? "updating" : "creating"} listing:`,
+        error
+      );
       alert(
         `Error: ${
-          error instanceof Error ? error.message : `Failed to ${isEditMode ? "update" : "create"} listing`
+          error instanceof Error
+            ? error.message
+            : `Failed to ${isEditMode ? "update" : "create"} listing`
         }`
       );
     } finally {
@@ -1021,370 +1049,34 @@ export default function CreateListingModal({
 
           {/* Auto Calculated Tab */}
           {activeTab === "auto" && (
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                Financial Metrics
-              </h3>
-              <div className="grid grid-cols-2 gap-6">
-                {[
-                  { label: "Fair Market Value (FMV)", placeholder: "$500,000" },
-                  { label: "Financing Interest Rate (%)", placeholder: "4.5%" },
-                  { label: "Financing Term (Years)", placeholder: "30" },
-                  { label: "Holding Period", placeholder: "5 years" },
-                  {
-                    label: "Avg Rental Yield (%) – Long Term",
-                    placeholder: "8.5%",
-                  },
-                  {
-                    label: "Avg Rental Yield (%) – Short Term",
-                    placeholder: "12%",
-                  },
-                  {
-                    label: "Projected Annual Appreciation (Local)",
-                    placeholder: "3%",
-                  },
-                  {
-                    label:
-                      "Projected Annual Appreciation (FX & Inflation Adjusted)",
-                    placeholder: "2.8%",
-                  },
-                  { label: "Total Expense", placeholder: "$50,000" },
-                  {
-                    label: "Asset Value Change (Net) Last 6 Months",
-                    placeholder: "+5%",
-                  },
-                ].map((field, i) => (
-                  <div key={i}>
-                    <label className="block text-sm font-medium text-gray-700">
-                      {field.label}
-                    </label>
-                    <input
-                      type="text"
-                      className="mt-1 w-full rounded-md border border-gray-300 shadow-sm focus:border-[#4EA8A1] focus:ring-[#4EA8A1] p-2"
-                      placeholder={field.placeholder}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            <AutoCalculatedTab listingId={listingId} data={existingListing} />
           )}
 
           {/* ========== AI SUMMARIES TAB ========== */}
           {activeTab === "ai" && (
-            <div className="space-y-10">
-              <h3 className="text-2xl font-bold text-gray-900">
-                AI Summaries and Prompts
-              </h3>
+            <AISummariesTab listingId={listingId} data={existingListing} />
+          )}
 
-              <div className="space-y-8">
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-800">
-                    Executive Summary
-                  </h4>
-                  <p className="text-sm text-gray-500 mb-3">
-                    Concise analysis of investment potential and next steps
-                  </p>
-                  <textarea
-                    rows={4}
-                    readOnly
-                    className="w-full rounded-lg border border-gray-300 bg-gray-100 shadow-sm focus:border-[#4EA8A1] focus:ring-[#4EA8A1]"
-                    placeholder=""
-                  />
-                </div>
-
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-800">
-                    Key Strengths
-                  </h4>
-                  <textarea
-                    rows={3}
-                    readOnly
-                    className="w-full rounded-lg border border-gray-300 bg-gray-100 shadow-sm focus:border-[#4EA8A1] focus:ring-[#4EA8A1]"
-                    placeholder=""
-                  />
-                </div>
-
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-800">
-                    Risk Factors
-                  </h4>
-                  <textarea
-                    rows={3}
-                    readOnly
-                    className="w-full rounded-lg border border-gray-300 bg-gray-100 shadow-sm focus:border-[#4EA8A1] focus:ring-[#4EA8A1]"
-                    placeholder=""
-                  />
-                </div>
+          {/* Inda Score Progress Bar*/}
+          {activeTab === "admin" && (
+            <div className="pt-10">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Inda Score
+                </span>
+                <span className="text-sm text-gray-600">88%</span>
               </div>
-
-              {/* Inda Score Progress Bar */}
-              <div className="pt-10">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    Inda Score
-                  </span>
-                  <span className="text-sm text-gray-600">88%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div
-                    className="bg-[#4EA8A1] h-3 rounded-full transition-all duration-500"
-                    style={{ width: "88%" }}
-                  ></div>
-                </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-[#4EA8A1] h-3 rounded-full transition-all duration-500"
+                  style={{ width: "88%" }}
+                ></div>
               </div>
             </div>
           )}
 
-          {/* ========== REVIEWS TAB ========== */}
-          {activeTab === "reviews" && (
-            <div className="space-y-4">
-              {/* Search Bar */}
-              <div>
-                <input
-                  type="text"
-                  placeholder="🔍 Search reviews"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-md border-0 bg-[#5DABA4] text-white placeholder-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]"
-                />
-              </div>
-
-              {/* Quick Filters */}
-              <div className="border border-gray-300 rounded-md p-4 bg-white">
-                <p className="text-sm font-semibold text-gray-700 mb-3">
-                  Quick Filters
-                </p>
-                <div className="flex gap-6">
-                  {["client", "rating", "date"].map((filter) => (
-                    <label
-                      key={filter}
-                      className="flex items-center gap-2 text-sm text-gray-700"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={filters[filter as keyof typeof filters]}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            [filter]: e.target.checked,
-                          }))
-                        }
-                        className="w-4 h-4 rounded border-gray-300 text-[#4EA8A1]"
-                      />
-                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Loading State */}
-              {reviewsLoading && (
-                <div className="text-center py-8">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[#4EA8A1] border-t-transparent"></div>
-                  <p className="mt-2 text-gray-600">Loading reviews...</p>
-                </div>
-              )}
-
-              {/* Error State */}
-              {reviewsError && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                  <p className="text-red-700 text-sm">
-                    <strong>Error:</strong> {reviewsError}
-                  </p>
-                  <button
-                    onClick={fetchReviews}
-                    className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-                  >
-                    Try again
-                  </button>
-                </div>
-              )}
-
-              {/* Table */}
-              {!reviewsLoading && !reviewsError && (
-                <>
-                  <div className="overflow-x-auto rounded-md border border-gray-300 bg-white">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-[#5DABA4]">
-                        <tr>
-                          {[
-                            "Reviewer",
-                            "Transaction Type",
-                            "Rating",
-                            "Date",
-                            "Review",
-                            "Status",
-                            "Actions",
-                          ].map((header) => (
-                            <th
-                              key={header}
-                              className="px-4 py-3 text-left font-semibold text-white"
-                            >
-                              {header}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {reviews.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={7}
-                              className="px-4 py-8 text-center text-gray-500"
-                            >
-                              No reviews found
-                            </td>
-                          </tr>
-                        ) : (
-                          reviews.map((review) => (
-                            <tr
-                              key={review._id}
-                              className="hover:bg-gray-50 transition"
-                            >
-                              <td className="px-4 py-3 text-gray-800 font-medium">
-                                {review.userId?.firstName}{" "}
-                                {review.userId?.lastName}
-                                <br />
-                                <span className="text-xs text-gray-500">
-                                  {review.userId?.email}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-gray-700">
-                                <span
-                                  className={`px-2 py-1 rounded text-xs font-semibold ${
-                                    review.transactionType === "Bought"
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-blue-100 text-blue-700"
-                                  }`}
-                                >
-                                  {review.transactionType}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`rounded-md px-2 py-1 text-xs font-semibold text-gray-800 ${getRatingColor(
-                                      review.ratings?.averageRating || 0
-                                    )}`}
-                                  >
-                                    {getRatingStars(
-                                      review.ratings?.averageRating || 0
-                                    )}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="rounded-md px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-300">
-                                  {formatDate(review.createdAt)}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-gray-700 max-w-xs">
-                                <div
-                                  className="truncate"
-                                  title={review.detailedFeedback}
-                                >
-                                  {review.detailedFeedback}
-                                </div>
-                                {review.tags && review.tags.length > 0 && (
-                                  <div className="flex gap-1 mt-1 flex-wrap">
-                                    {review.tags.map(
-                                      (tag: string, idx: number) => (
-                                        <span
-                                          key={idx}
-                                          className="text-xs bg-gray-200 px-2 py-0.5 rounded"
-                                        >
-                                          {tag}
-                                        </span>
-                                      )
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span
-                                  className={`px-2 py-1 rounded text-xs font-semibold ${
-                                    review.status === "approved"
-                                      ? "bg-green-100 text-green-700"
-                                      : review.status === "rejected"
-                                      ? "bg-red-100 text-red-700"
-                                      : "bg-yellow-100 text-yellow-700"
-                                  }`}
-                                >
-                                  {review.status}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2 text-xs">
-                                  <button
-                                    onClick={() =>
-                                      window.open(review.listingUrl, "_blank")
-                                    }
-                                    className="text-[#5DABA4] font-semibold hover:underline"
-                                  >
-                                    View
-                                  </button>
-                                  <span className="text-gray-400">|</span>
-                                  <button
-                                    onClick={() =>
-                                      handleReviewAction(review._id, "approve")
-                                    }
-                                    disabled={review.status === "approved"}
-                                    className="text-[#5DABA4] font-semibold hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    Approve
-                                  </button>
-                                  <span className="text-gray-400">|</span>
-                                  <button
-                                    onClick={() =>
-                                      handleReviewAction(review._id, "reject")
-                                    }
-                                    disabled={review.status === "rejected"}
-                                    className="text-red-500 font-semibold hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    Reject
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-4">
-                      <p className="text-sm text-gray-600">
-                        Showing page {currentPage} of {totalPages} (
-                        {totalResults} total reviews)
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() =>
-                            setCurrentPage((p) => Math.max(1, p - 1))
-                          }
-                          disabled={currentPage === 1}
-                          className="px-3 py-1 rounded border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Previous
-                        </button>
-                        <button
-                          onClick={() =>
-                            setCurrentPage((p) => Math.min(totalPages, p + 1))
-                          }
-                          disabled={currentPage === totalPages}
-                          className="px-3 py-1 rounded border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+          {/* Reviews Tab */}
+          {activeTab === "reviews" && <ReviewsTab listingId={listingId} />}
         </div>
       </div>
     </div>
