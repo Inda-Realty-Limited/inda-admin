@@ -17,7 +17,7 @@ import axios, { type AxiosError, type AxiosRequestHeaders } from "axios";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_ADMIN_API_BASE ||
-  "https://pcphc7xyrz.us-east-1.awsapprunner.com"; // prior hosted: https://inda-core-backend-services.onrender.com//https://pcphc7xyrz.us-east-1.awsapprunner.com
+  "http://localhost:9009"; // prior hosted: https://inda-core-backend-services.onrender.com//https://pcphc7xyrz.us-east-1.awsapprunner.com
 
 export const adminApi = axios.create({
   baseURL: BASE_URL + "/admin",

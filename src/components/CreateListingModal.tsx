@@ -8,9 +8,9 @@ import {
   FiX,
   FiFile,
 } from "react-icons/fi";
-import { AutoCalculatedTab } from "../pages/dashboard/auto-calculated";
-import { ReviewsTab } from "../pages/dashboard/reviews";
-import { AISummariesTab } from "../pages/dashboard/ai-summaries";
+import { AutoCalculatedTab } from "./auto-calculated";
+import { ReviewsTab } from "./reviews";
+import { AISummariesTab } from "./ai-summaries";
 
 const useAdminListing = (id?: string) => {
   const [data, setData] = useState<any>(null);
