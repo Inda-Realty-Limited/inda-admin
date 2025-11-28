@@ -297,6 +297,42 @@ export default function CreateListingModal({
           existingListing.developmentApprovalCheck || "",
         encumbrances: existingListing.encumbrances || "",
       });
+      setTitleDocs(
+  (existingListing.titleDocs || []).map((url: string) => ({
+    file: null,
+    preview: url,
+    uploaded: true,
+    url,
+  }))
+);
+
+setLegalDocs(
+  (existingListing.legalDocs || []).map((url: string) => ({
+    file: null,
+    preview: url,
+    uploaded: true,
+    url,
+  }))
+);
+
+setPropertyImages(
+  (existingListing.propertyImages || []).map((url: string) => ({
+    file: null,
+    preview: url,
+    uploaded: true,
+    url,
+  }))
+);
+
+setAmenityImages(
+  (existingListing.amenityImages || []).map((url: string) => ({
+    file: null,
+    preview: url,
+    uploaded: true,
+    url,
+  }))
+);
+
     }
   }, [existingListing, isEditMode, isLoading]);
 
@@ -1164,38 +1200,46 @@ const FileUploadBox = ({
       </label>
 
       {files && files.length > 0 && (
-        <div className="mt-3 grid grid-cols-3 gap-3">
-          {files.map((f, idx) => (
-            <div
-              key={idx}
-              className="relative rounded-lg overflow-hidden border border-gray-200 bg-white"
-            >
-              {f.file.type.startsWith("image/") ? (
-                <img
-                  src={f.preview}
-                  alt={f.file.name}
-                  className="h-24 w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-24 items-center justify-center">
-                  <FiFile size={24} className="text-gray-500" />
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => onRemove(idx)}
-                className="absolute top-1 right-1 rounded-full bg-white p-1 text-gray-600 hover:bg-gray-100"
-                title="Remove file"
-              >
-                <FiX size={14} />
-              </button>
-              <div className="p-2 text-xs text-gray-600 truncate">
-                {f.file.name}
-              </div>
+  <div className="mt-3 grid grid-cols-3 gap-3">
+    {files.map((f, idx) => {
+      // Determine if the file is an image
+      const isImage = f.file?.type?.startsWith("image/") || f.preview?.match(/\.(jpeg|jpg|png|gif)$/i);
+
+      // Determine the display name
+      const fileName = f.file?.name || f.preview?.split("/").pop() || "File";
+
+      return (
+        <div
+          key={idx}
+          className="relative rounded-lg overflow-hidden border border-gray-200 bg-white"
+        >
+          {isImage ? (
+            <img
+              src={f.preview || URL.createObjectURL(f.file!)}
+              alt={fileName}
+              className="h-24 w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-24 items-center justify-center">
+              <FiFile size={24} className="text-gray-500" />
             </div>
-          ))}
+          )}
+
+          <button
+            type="button"
+            onClick={() => onRemove(idx)}
+            className="absolute top-1 right-1 rounded-full bg-white p-1 text-gray-600 hover:bg-gray-100"
+            title="Remove file"
+          >
+            <FiX size={14} />
+          </button>
+
+          <div className="p-2 text-xs text-gray-600 truncate">{fileName}</div>
         </div>
-      )}
+      );
+    })}
+  </div>
+)}
     </div>
   );
 };
