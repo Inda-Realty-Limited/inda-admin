@@ -236,22 +236,38 @@ export default function QuestionnairesView() {
         },
       },
       {
-        key: "actions",
-        label: "Actions",
-        align: "center",
-        render: (_value: unknown, row: Record<string, unknown>) => {
-          const id = typeof row["_id"] === "string" ? row["_id"] : undefined;
-          return (
-            <TableButton
-              variant="secondary"
-              size="sm"
-              onClick={() => handleView(id)}
-            >
-              View
-            </TableButton>
-          );
-        },
-      },
+  key: "actions",
+  label: "Actions",
+  align: "center",
+  render: (_value: unknown, row: Record<string, unknown>) => {
+    const id = typeof row["_id"] === "string" ? row["_id"] : undefined;
+
+    return (
+      <select
+        defaultValue=""
+        onChange={(e) => {
+          if (!id) return;
+
+          if (e.target.value === "view") {
+            router.push(`/dashboard/questionnaires/${id}`);
+          }
+
+          if (e.target.value === "report") {
+            router.push(`/dashboard/questionnaires/${id}/report`);
+          }
+        }}
+        className="h-9 rounded border border-gray-300 bg-white px-2 text-sm cursor-pointer"
+      >
+        <option value="" disabled>
+          Select
+        </option>
+        <option value="view">View</option>
+        <option value="report">Report</option>
+      </select>
+    );
+  },
+},
+
     ];
   }, [handleView]);
 

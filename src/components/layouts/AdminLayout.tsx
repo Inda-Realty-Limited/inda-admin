@@ -33,6 +33,7 @@ const navItems: NavItem[] = [
     icon: FiHome,
     section: "core",
   },
+ 
   {
     label: "Listings",
     href: "/dashboard/listings",
@@ -46,6 +47,12 @@ const navItems: NavItem[] = [
     section: "core",
   },
   { label: "Users", href: "/dashboard/users", icon: FiUsers, section: "core" },
+   {
+    label: "ProUsers",
+    href: "/dashboard/prousers",
+    icon: FiUsers,
+    section: "core",
+  },
   {
     label: "Transactions",
     href: "/dashboard/transactions",
