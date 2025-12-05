@@ -22,7 +22,7 @@ interface ApiResponse {
   data: User[];
 }
 
-export default function proUsersView() {
+export default function ProUsersView() {
   const router = useRouter();
   const [filters, setFilters] = useState({
     page: 1,

@@ -7,7 +7,6 @@ import {
   Pagination,
   Table,
   TableBadge,
-  TableButton,
   type TableColumn,
 } from "@/components/ui";
 import type {
