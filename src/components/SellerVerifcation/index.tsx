@@ -735,7 +735,8 @@ export default function SellerVerification() {
           {projects.length === 0 && (
             <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
               <p className="mb-2">No projects yet</p>
-              <p className="text-sm">Click "Add New Project" below to get started</p>
+              <p className="text-sm">Click &quot;Add New Project&quot; below to get started</p>
+
             </div>
           )}
 
