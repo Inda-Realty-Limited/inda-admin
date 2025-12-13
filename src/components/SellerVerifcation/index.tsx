@@ -315,18 +315,21 @@ export default function SellerVerification() {
         );
       } else {
         // UPDATE existing project
-        const response = await fetch(API_ENDPOINTS.PROJECT_BY_ID(project.backendId), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: project.title,
-            deliveryDate: project.deliveryDate,
-            duration: project.duration,
-            feedback: project.feedback,
-            rating: project.rating,
-            status: project.status
-          })
-        });
+        if (!project.backendId) return; // or throw an error
+
+const response = await fetch(API_ENDPOINTS.PROJECT_BY_ID(project.backendId), {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    title: project.title,
+    deliveryDate: project.deliveryDate,
+    duration: project.duration,
+    feedback: project.feedback,
+    rating: project.rating,
+    status: project.status
+  })
+});
+
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -735,7 +738,8 @@ export default function SellerVerification() {
           {projects.length === 0 && (
             <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
               <p className="mb-2">No projects yet</p>
-              <p className="text-sm">Click "Add New Project" below to get started</p>
+              <p className="text-sm">Click &quot;Add New Project&quot; below to get started</p>
+
             </div>
           )}
 
