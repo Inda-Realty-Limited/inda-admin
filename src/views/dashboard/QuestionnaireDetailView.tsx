@@ -302,7 +302,113 @@ export default function QuestionnaireDetailView() {
               </div>
             </DetailCard>
           )}
+{questionnaire.legalDocuments && Object.keys(questionnaire.legalDocuments).length > 0 && (
+            <div className="rounded-xl border-2 border-gray-200 bg-white shadow-sm overflow-hidden">
+              <div className="bg-gradient-to-r from-[#E8F5F4] to-[#D4ECE9] px-6 py-4 border-b-2 border-[#4EA8A1]/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-[#4EA8A1] flex items-center justify-center">
+                      <FiFileText size={24} className="text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-extrabold text-gray-900">
+                        Legal Documents
+                      </h2>
+                      <p className="text-xs text-gray-600 font-semibold">
+                        Uploaded Files & Attachments
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 bg-[#4EA8A1] text-white px-4 py-2 rounded-full">
+                    <FiFileText size={16} />
+                    <span className="text-xs font-extrabold uppercase">
+                      {Object.entries(questionnaire.legalDocuments)
+                        .filter(
+                          ([, files]) =>
+                            Array.isArray(files) &&
+                            (files as QuestionnaireFileRef[]).length > 0
+                        )
+                        .reduce(
+                          (acc, [, files]) =>
+                            acc + (files as QuestionnaireFileRef[]).length,
+                          0
+                        )}{" "}
+                      Files
+                    </span>
+                  </div>
+                </div>
+              </div>
 
+              <div className="p-6">
+                <div className="space-y-6">
+                  {Object.entries(questionnaire.legalDocuments)
+                    .filter(
+                      ([, files]) =>
+                        Array.isArray(files) &&
+                        (files as QuestionnaireFileRef[]).length > 0
+                    )
+                    .map(([key, files]) => (
+                      <div key={key} className="flex flex-col gap-3">
+                        <label className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                          <FiFileText size={12} />
+                          {titleCase(key)}
+                        </label>
+                        <div className="space-y-2">
+                          {(files as QuestionnaireFileRef[]).map(
+                            (file, index) => {
+                              const name = file.name || `Document ${index + 1}`;
+                              const url = file.url;
+                              const size = file.sizeBytes;
+                              return (
+                                <div
+                                  key={`${key}-${index}`}
+                                  className="min-h-[44px] flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-lg hover:border-[#4EA8A1] transition-all"
+                                >
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <span className="text-2xl">📄</span>
+                                    <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                                      {url ? (
+                                        <a
+                                          href={url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-sm font-bold text-[#4EA8A1] hover:text-[#3d8882] hover:underline transition-colors truncate"
+                                        >
+                                          {name}
+                                        </a>
+                                      ) : (
+                                        <span className="text-sm font-bold text-gray-900 truncate">
+                                          {name}
+                                        </span>
+                                      )}
+                                      {typeof size === "number" && (
+                                        <span className="text-[10px] font-semibold text-gray-500">
+                                          {formatFileSize(size)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {url && (
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="px-4 py-2 bg-[#4EA8A1] text-white rounded-lg text-xs font-bold hover:bg-[#3d8882] transition-all whitespace-nowrap"
+                                    >
+                                    
+                                    </a>
+                                  )}
+                                </div>
+                              );
+                            }
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
           <DocumentsSection questionnaire={questionnaire} />
 
           <NotesSection notes={questionnaire.metadata?.adminNotes} />
