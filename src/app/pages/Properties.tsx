@@ -1,58 +1,81 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { StatusChip } from '../components/StatusChip';
+import { TierChip } from '../components/TierChip';
 import { Modal } from '../components/Modal';
 import { SlideInPanel } from '../components/SlideInPanel';
 import { Search, Filter, ChevronDown, Plus } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
+import { api } from '../../lib/api';
 
-const listingsData = [
-  { id: 1, name: '4BR Villa', location: 'Lekki Phase 1', address: '15 Palm Grove Street', price: '₦85,000,000', status: 'active' as const, leads: 24, agents: 8, daysOnPlatform: 45 },
-  { id: 2, name: '3BR Apartment', location: 'Victoria Island', address: '42 Adeola Odeku', price: '₦45,000,000', status: 'active' as const, leads: 18, agents: 12, daysOnPlatform: 32 },
-  { id: 3, name: '5BR Duplex', location: 'Ikoyi', address: '8 Banana Island Road', price: '₦120,000,000', status: 'pending' as const, leads: 31, agents: 5, daysOnPlatform: 12 },
-  { id: 4, name: '2BR Flat', location: 'Ikeja GRA', address: '23 Allen Avenue', price: '₦28,000,000', status: 'active' as const, leads: 15, agents: 9, daysOnPlatform: 28 },
-  { id: 5, name: '4BR Terrace', location: 'Ajah', address: '67 Lekki-Epe Expressway', price: '₦52,000,000', status: 'active' as const, leads: 22, agents: 7, daysOnPlatform: 56 },
-];
+const PLAN_TO_TIER: Record<string, 'starter' | 'growth' | 'elite' | 'partner'> = {
+  STARTER: 'starter', GROWTH: 'growth', ELITE: 'elite', PARTNER: 'partner',
+};
+
+const DEAL_STAGE_LABEL: Record<string, string> = {
+  LEAD_CAPTURED: 'Lead', REPORT_VIEWED: 'Contacted', INQUIRY: 'Contacted',
+  INSPECTION: 'Inspection', OFFER: 'Offer Made', NEGOTIATION: 'Negotiation',
+  CLOSING: 'Closed Won', LOST: 'Closed Lost',
+};
+
+const KANBAN_COLUMNS = ['Lead', 'Contacted', 'Inspection', 'Offer Made', 'Negotiation', 'Closed Won', 'Closed Lost'];
+
+function modStatusToChip(status: string): 'active' | 'pending' | 'rejected' {
+  if (status === 'APPROVED') return 'active';
+  if (status === 'REJECTED') return 'rejected';
+  return 'pending';
+}
+
+function formatPrice(n: number | null | undefined): string {
+  if (!n) return '—';
+  return `₦${n.toLocaleString()}`;
+}
+
+function formatBudget(min: number | null, max: number | null): string {
+  if (!min && !max) return '—';
+  const fmt = (n: number) => n >= 1_000_000 ? `₦${(n / 1_000_000).toFixed(0)}M` : `₦${(n / 1_000).toFixed(0)}K`;
+  if (min && max) return `${fmt(min)} – ${fmt(max)}`;
+  return fmt(min || max!);
+}
+
+interface Listing {
+  id: string;
+  title: string | null;
+  fullAddress: string | null;
+  priceNGN: number | null;
+  moderationStatus: string;
+  user: { id: string; firstName: string; lastName: string | null };
+  _count: { leads: number };
+}
 
 interface Lead {
-  id: number; buyer: string; budget: string; location: string;
-  score: 'high' | 'medium' | 'low'; agent: string; agentId: number | null;
-  date: string; assigned: boolean;
+  id: string;
+  name: string | null;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  propertyLocation: string | null;
+  priority: string;
+  status: string;
+  createdAt: string;
+  assignedToId: string | null;
+  listing: { id: string; title: string | null; userId: string } | null;
 }
-
-const leadsData: Lead[] = [
-  { id: 1, buyer: 'Adewale Johnson', budget: '₦80-100M', location: 'Lekki, VI', score: 'high', agent: 'Oluwaseun A.', agentId: 1, date: '2026-04-08', assigned: true },
-  { id: 2, buyer: 'Grace Eze', budget: '₦40-50M', location: 'Victoria Island', score: 'medium', agent: 'Chidinma O.', agentId: 2, date: '2026-04-08', assigned: true },
-  { id: 3, buyer: 'Michael Obi', budget: '₦100-150M', location: 'Ikoyi', score: 'high', agent: 'Ibrahim M.', agentId: 3, date: '2026-04-07', assigned: true },
-  { id: 4, buyer: 'Fatima Abubakar', budget: '₦25-35M', location: 'Ikeja', score: 'low', agent: 'Unassigned', agentId: null, date: '2026-04-07', assigned: false },
-  { id: 5, buyer: 'Daniel Okoro', budget: '₦50-60M', location: 'Ajah, Lekki', score: 'medium', agent: 'Blessing N.', agentId: 4, date: '2026-04-06', assigned: true },
-];
 
 interface Deal {
-  id: number; buyer: string; property: string; value: string;
-  agent: string; agentAvatar: string; daysInStage: number; stage: string;
+  id: string;
+  buyerName: string;
+  propertyName: string;
+  budget: string | null;
+  stage: string;
+  agent: { id: string; firstName: string; lastName: string | null };
 }
 
-const dealsData: Deal[] = [
-  { id: 1, buyer: 'Ahmed Ibrahim', property: '3BR Flat, Ikeja', value: '₦32M', agent: 'Chidinma O.', agentAvatar: 'CO', daysInStage: 2, stage: 'Lead' },
-  { id: 2, buyer: 'Jennifer Okeke', property: '4BR Villa, Lekki', value: '₦78M', agent: 'Oluwaseun A.', agentAvatar: 'OA', daysInStage: 1, stage: 'Lead' },
-  { id: 3, buyer: 'Kunle Adebayo', property: '2BR Condo, VI', value: '₦45M', agent: 'Ibrahim M.', agentAvatar: 'IM', daysInStage: 5, stage: 'Contacted' },
-  { id: 4, buyer: 'Ngozi Eze', property: '5BR Duplex, Ikoyi', value: '₦125M', agent: 'Tunde B.', agentAvatar: 'TB', daysInStage: 3, stage: 'Contacted' },
-  { id: 5, buyer: 'Yusuf Hassan', property: '3BR Apartment, Ajah', value: '₦38M', agent: 'Blessing N.', agentAvatar: 'BN', daysInStage: 7, stage: 'Inspection' },
-  { id: 6, buyer: 'Chiamaka Nwankwo', property: '4BR Terrace, Lekki', value: '₦62M', agent: 'Chidinma O.', agentAvatar: 'CO', daysInStage: 4, stage: 'Offer Made' },
-  { id: 7, buyer: 'David Ola', property: '2BR Flat, Yaba', value: '₦28M', agent: 'Ibrahim M.', agentAvatar: 'IM', daysInStage: 6, stage: 'Offer Made' },
-  { id: 8, buyer: 'Blessing Okafor', property: '5BR Villa, VI', value: '₦145M', agent: 'Oluwaseun A.', agentAvatar: 'OA', daysInStage: 8, stage: 'Negotiation' },
-  { id: 9, buyer: 'Emeka Obi', property: '3BR Condo, Ikoyi', value: '₦95M', agent: 'Tunde B.', agentAvatar: 'TB', daysInStage: 2, stage: 'Closed Won' },
-  { id: 10, buyer: 'Aisha Mohammed', property: '4BR Duplex, Lekki', value: '₦88M', agent: 'Blessing N.', agentAvatar: 'BN', daysInStage: 1, stage: 'Closed Lost' },
-];
-
-const agents = [
-  { id: 1, name: 'Oluwaseun Adeyemi', tier: 'Elite' },
-  { id: 2, name: 'Chidinma Okonkwo', tier: 'Growth' },
-  { id: 3, name: 'Ibrahim Mohammed', tier: 'Elite' },
-  { id: 4, name: 'Blessing Nwosu', tier: 'Growth' },
-  { id: 5, name: 'Tunde Bakare', tier: 'Partner' },
-];
+interface AgentOption {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  subscriptionPlan: string;
+}
 
 export function Properties() {
   const location = useLocation();
@@ -62,71 +85,157 @@ export function Properties() {
   const searchParams = new URLSearchParams(location.search);
   const activeTab = searchParams.get('tab') || 'listings';
 
-  const [selectedListing, setSelectedListing] = useState<typeof listingsData[0] | null>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [loadingListings, setLoadingListings] = useState(false);
+  const [loadingLeads, setLoadingLeads] = useState(false);
+  const [loadingDeals, setLoadingDeals] = useState(false);
+
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isExclusive, setIsExclusive] = useState(false);
-  const [listingStatus, setListingStatus] = useState<'active' | 'pending' | 'approved' | 'rejected'>('active');
+  const [pendingStatus, setPendingStatus] = useState<string>('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<number | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [agentOptions, setAgentOptions] = useState<AgentOption[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [agentSearch, setAgentSearch] = useState('');
   const [tierFilter, setTierFilter] = useState('All');
-  const [leads, setLeads] = useState<Lead[]>(leadsData);
 
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
-  const [deals, setDeals] = useState(dealsData);
-
   const [showAddListingModal, setShowAddListingModal] = useState(false);
 
   const setActiveTab = (tab: string) => navigate(`/properties?tab=${tab}`);
 
-  const handleListingClick = (listing: typeof listingsData[0]) => {
+  const fetchListings = useCallback(async (search?: string) => {
+    setLoadingListings(true);
+    try {
+      const q = search ? `?search=${encodeURIComponent(search)}&limit=50` : '?limit=50';
+      const res = await api.get<{ data: Listing[] }>(`/admin/listings${q}`);
+      setListings(res.data);
+    } catch (err) { console.error(err); }
+    finally { setLoadingListings(false); }
+  }, []);
+
+  const fetchLeads = useCallback(async (search?: string) => {
+    setLoadingLeads(true);
+    try {
+      const q = search ? `?search=${encodeURIComponent(search)}&limit=50` : '?limit=50';
+      const res = await api.get<{ data: Lead[] }>(`/admin/leads${q}`);
+      setLeads(res.data);
+    } catch (err) { console.error(err); }
+    finally { setLoadingLeads(false); }
+  }, []);
+
+  const fetchDeals = useCallback(async () => {
+    setLoadingDeals(true);
+    try {
+      const res = await api.get<{ data: Deal[] }>('/admin/deals?limit=100');
+      setDeals(res.data);
+    } catch (err) { console.error(err); }
+    finally { setLoadingDeals(false); }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'listings') fetchListings();
+    else if (activeTab === 'leads') fetchLeads();
+    else if (activeTab === 'deals') fetchDeals();
+  }, [activeTab, fetchListings, fetchLeads, fetchDeals]);
+
+  useEffect(() => {
+    if (activeTab !== 'listings') return;
+    const t = setTimeout(() => fetchListings(searchQuery || undefined), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery, activeTab, fetchListings]);
+
+  const handleListingClick = (listing: Listing) => {
     setSelectedListing(listing);
-    setListingStatus(listing.status as 'active' | 'pending');
+    setPendingStatus(listing.moderationStatus);
   };
 
-  const handleApproveListing = () => {
-    setListingStatus('approved');
-    toast.success('Listing approved');
+  const handleApproveListing = async () => {
+    if (!selectedListing) return;
+    try {
+      await api.post(`/admin/listings/${selectedListing.id}/moderate`, { status: 'APPROVED' });
+      setPendingStatus('APPROVED');
+      setListings(listings.map((l) => l.id === selectedListing.id ? { ...l, moderationStatus: 'APPROVED' } : l));
+      toast.success('Listing approved');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to approve listing');
+    }
   };
 
-  const handleRejectListing = () => {
-    setListingStatus('rejected');
-    setShowRejectModal(false);
-    toast.success('Listing rejected');
+  const handleRejectListing = async () => {
+    if (!selectedListing) return;
+    try {
+      await api.post(`/admin/listings/${selectedListing.id}/moderate`, { status: 'REJECTED', reason: rejectReason });
+      setPendingStatus('REJECTED');
+      setListings(listings.map((l) => l.id === selectedListing.id ? { ...l, moderationStatus: 'REJECTED' } : l));
+      setShowRejectModal(false);
+      setRejectReason('');
+      toast.success('Listing rejected');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reject listing');
+    }
   };
 
   const handleAssignToTier = (tier: string) => toast.success(`Listing assigned to ${tier} agents`);
 
-  const handleAssignLead = () => {
-    if (selectedLead !== null && selectedAgent !== null) {
-      setLeads(leads.map((lead) =>
-        lead.id === selectedLead
-          ? { ...lead, agent: agents.find((a) => a.id === selectedAgent)?.name || 'Assigned', assigned: true, agentId: selectedAgent }
-          : lead
+  const openAssignModal = async (leadId: string) => {
+    setSelectedLeadId(leadId);
+    setSelectedAgentId(null);
+    setAgentSearch('');
+    setTierFilter('All');
+    setShowAssignModal(true);
+    if (agentOptions.length === 0) {
+      try {
+        const res = await api.get<{ data: AgentOption[] }>('/admin/agents?limit=100');
+        setAgentOptions(res.data);
+      } catch (err) { console.error(err); }
+    }
+  };
+
+  const handleAssignLead = async () => {
+    if (!selectedLeadId || !selectedAgentId) return;
+    try {
+      await api.post(`/admin/leads/${selectedLeadId}/assign`, { agentId: selectedAgentId });
+      const agentName = agentOptions.find((a) => a.id === selectedAgentId);
+      setLeads(leads.map((l) =>
+        l.id === selectedLeadId
+          ? { ...l, assignedToId: selectedAgentId }
+          : l
       ));
       setShowAssignModal(false);
-      toast.success('Lead assigned successfully');
+      toast.success(`Lead assigned to ${agentName ? `${agentName.firstName} ${agentName.lastName || ''}` : 'agent'}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to assign lead');
     }
   };
 
-  const handleApproveStage = (deal: Deal) => {
-    const stages = ['Lead', 'Contacted', 'Inspection', 'Offer Made', 'Negotiation', 'Closed Won'];
-    const currentIndex = stages.indexOf(deal.stage);
-    if (currentIndex < stages.length - 1) {
-      setDeals(deals.map((d) => d.id === deal.id ? { ...d, stage: stages[currentIndex + 1], daysInStage: 0 } : d));
+  const handleApproveStage = async (deal: Deal) => {
+    try {
+      const res = await api.patch<{ data: { stage: string } }>(`/admin/deals/${deal.id}/stage`);
+      const newStage = res.data.stage;
+      const newLabel = DEAL_STAGE_LABEL[newStage] || newStage;
+      setDeals(deals.map((d) => d.id === deal.id ? { ...d, stage: newStage } : d));
       setSelectedDeal(null);
-      toast.success(`Deal moved to ${stages[currentIndex + 1]}`);
+      toast.success(`Deal moved to ${newLabel}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to advance deal stage');
     }
   };
 
-  const groupedDeals = deals.reduce((acc, deal) => {
-    if (!acc[deal.stage]) acc[deal.stage] = [];
-    acc[deal.stage].push(deal);
+  const groupedDeals = deals.reduce<Record<string, Deal[]>>((acc, deal) => {
+    const label = DEAL_STAGE_LABEL[deal.stage] || deal.stage;
+    if (!acc[label]) acc[label] = [];
+    acc[label].push(deal);
     return acc;
-  }, {} as Record<string, Deal[]>);
+  }, {});
 
-  const filteredAgents = tierFilter === 'All' ? agents : agents.filter((a) => a.tier === tierFilter);
+  const displayStatus = pendingStatus === 'APPROVED' ? 'active' : pendingStatus === 'REJECTED' ? 'rejected' : 'pending';
 
   return (
     <>
@@ -181,33 +290,41 @@ export function Properties() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-[#F9FAFB] h-12">
-                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Property Name</th>
+                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Property</th>
                     <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Location</th>
                     <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Price</th>
                     <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Status</th>
                     <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Leads</th>
-                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Agents</th>
+                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Agent</th>
                     <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {listingsData
-                    .filter((l) => l.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                    .map((listing) => (
+                  {loadingListings ? (
+                    <tr><td colSpan={7} className="px-6 py-8 text-center text-sm text-[#6B7280]">Loading...</td></tr>
+                  ) : listings.length === 0 ? (
+                    <tr><td colSpan={7} className="px-6 py-8 text-center text-sm text-[#6B7280]">No listings found</td></tr>
+                  ) : (
+                    listings.map((listing) => (
                       <tr key={listing.id} className="border-b border-[#F3F4F6] hover:bg-[#F9FFFE] transition-colors h-14">
-                        <td className="px-6 py-4"><span className="text-sm font-medium text-[#0D1117]">{listing.name}</span></td>
-                        <td className="px-6 py-4"><span className="text-sm text-[#6B7280]">{listing.location}</span></td>
-                        <td className="px-6 py-4"><span className="text-sm font-medium text-[#0D1117] tabular-nums">{listing.price}</span></td>
+                        <td className="px-6 py-4"><span className="text-sm font-medium text-[#0D1117]">{listing.title || 'Untitled'}</span></td>
+                        <td className="px-6 py-4"><span className="text-sm text-[#6B7280]">{listing.fullAddress || '—'}</span></td>
+                        <td className="px-6 py-4"><span className="text-sm font-medium text-[#0D1117] tabular-nums">{formatPrice(listing.priceNGN)}</span></td>
                         <td className="px-6 py-4">
-                          <StatusChip status={listing.status}>{listing.status.charAt(0).toUpperCase() + listing.status.slice(1)}</StatusChip>
+                          <StatusChip status={modStatusToChip(listing.moderationStatus)}>
+                            {listing.moderationStatus.charAt(0) + listing.moderationStatus.slice(1).toLowerCase()}
+                          </StatusChip>
                         </td>
-                        <td className="px-6 py-4"><span className="text-sm text-[#6B7280] tabular-nums">{listing.leads}</span></td>
-                        <td className="px-6 py-4"><span className="text-sm text-[#6B7280] tabular-nums">{listing.agents}</span></td>
+                        <td className="px-6 py-4"><span className="text-sm text-[#6B7280] tabular-nums">{listing._count?.leads ?? 0}</span></td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-[#6B7280]">{listing.user.firstName} {listing.user.lastName || ''}</span>
+                        </td>
                         <td className="px-6 py-4">
                           <button onClick={() => handleListingClick(listing)} className="text-sm text-[#4EA8A1] hover:underline">View</button>
                         </td>
                       </tr>
-                    ))}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -232,30 +349,39 @@ export function Properties() {
                     <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Buyer Name</th>
                     <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Budget</th>
                     <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Location Interest</th>
-                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Lead Score</th>
-                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Assigned Agent</th>
+                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Priority</th>
+                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Property</th>
                     <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Date</th>
                     <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {leads.map((lead) => (
-                    <tr key={lead.id} className="border-b border-[#F3F4F6] hover:bg-[#F9FFFE] transition-colors h-14">
-                      <td className="px-6 py-4"><span className="text-sm font-medium text-[#0D1117]">{lead.buyer}</span></td>
-                      <td className="px-6 py-4"><span className="text-sm text-[#6B7280] tabular-nums">{lead.budget}</span></td>
-                      <td className="px-6 py-4"><span className="text-sm text-[#6B7280]">{lead.location}</span></td>
-                      <td className="px-6 py-4">
-                        <StatusChip status={lead.score}>{lead.score.charAt(0).toUpperCase() + lead.score.slice(1)}</StatusChip>
-                      </td>
-                      <td className="px-6 py-4"><span className="text-sm text-[#6B7280]">{lead.agent}</span></td>
-                      <td className="px-6 py-4"><span className="text-sm text-[#6B7280]">{lead.date}</span></td>
-                      <td className="px-6 py-4">
-                        <button onClick={() => { setSelectedLead(lead.id); setShowAssignModal(true); }} className="text-sm text-[#4EA8A1] hover:underline">
-                          {lead.assigned ? 'Reassign' : 'Assign'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {loadingLeads ? (
+                    <tr><td colSpan={7} className="px-6 py-8 text-center text-sm text-[#6B7280]">Loading...</td></tr>
+                  ) : leads.length === 0 ? (
+                    <tr><td colSpan={7} className="px-6 py-8 text-center text-sm text-[#6B7280]">No leads found</td></tr>
+                  ) : (
+                    leads.map((lead) => {
+                      const score = (lead.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low';
+                      return (
+                        <tr key={lead.id} className="border-b border-[#F3F4F6] hover:bg-[#F9FFFE] transition-colors h-14">
+                          <td className="px-6 py-4"><span className="text-sm font-medium text-[#0D1117]">{lead.name || 'Anonymous'}</span></td>
+                          <td className="px-6 py-4"><span className="text-sm text-[#6B7280] tabular-nums">{formatBudget(lead.budgetMin, lead.budgetMax)}</span></td>
+                          <td className="px-6 py-4"><span className="text-sm text-[#6B7280]">{lead.propertyLocation || '—'}</span></td>
+                          <td className="px-6 py-4">
+                            <StatusChip status={score}>{score.charAt(0).toUpperCase() + score.slice(1)}</StatusChip>
+                          </td>
+                          <td className="px-6 py-4"><span className="text-sm text-[#6B7280]">{lead.listing?.title || '—'}</span></td>
+                          <td className="px-6 py-4"><span className="text-sm text-[#6B7280]">{new Date(lead.createdAt).toLocaleDateString()}</span></td>
+                          <td className="px-6 py-4">
+                            <button onClick={() => openAssignModal(lead.id)} className="text-sm text-[#4EA8A1] hover:underline">
+                              Assign
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -272,47 +398,53 @@ export function Properties() {
                 </button>
               ))}
             </div>
-            <div className="overflow-x-auto pb-4">
-              <div className="flex gap-4 min-w-max">
-                {['Lead', 'Contacted', 'Inspection', 'Offer Made', 'Negotiation', 'Closed Won', 'Closed Lost'].map((stage) => {
-                  const stageDeals = groupedDeals[stage] || [];
-                  return (
-                    <div key={stage} className="flex-shrink-0 w-[280px]">
-                      <div className="bg-[#F9FAFB] rounded-lg px-4 py-3 mb-3 flex items-center justify-between">
-                        <span className="text-sm font-medium text-[#0D1117]">{stage}</span>
-                        <span className="text-xs font-medium text-[#6B7280] bg-white rounded-full px-2 py-0.5">{stageDeals.length}</span>
+            {loadingDeals ? (
+              <div className="text-sm text-[#6B7280] py-8 text-center">Loading deals...</div>
+            ) : (
+              <div className="overflow-x-auto pb-4">
+                <div className="flex gap-4 min-w-max">
+                  {KANBAN_COLUMNS.map((stage) => {
+                    const stageDeals = groupedDeals[stage] || [];
+                    return (
+                      <div key={stage} className="flex-shrink-0 w-[280px]">
+                        <div className="bg-[#F9FAFB] rounded-lg px-4 py-3 mb-3 flex items-center justify-between">
+                          <span className="text-sm font-medium text-[#0D1117]">{stage}</span>
+                          <span className="text-xs font-medium text-[#6B7280] bg-white rounded-full px-2 py-0.5">{stageDeals.length}</span>
+                        </div>
+                        <div className="space-y-3">
+                          {stageDeals.map((deal) => {
+                            const agentInitials = `${deal.agent.firstName[0]}${deal.agent.lastName?.[0] ?? ''}`;
+                            return (
+                              <button
+                                key={deal.id}
+                                onClick={() => setSelectedDeal(deal)}
+                                className={`w-full bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer text-left ${
+                                  stage === 'Closed Won' ? 'border-l-4 border-l-[#10B981]' :
+                                  stage === 'Closed Lost' ? 'border-l-4 border-l-[#EF4444] opacity-70' :
+                                  'border-[#E5E7EB]'
+                                }`}
+                              >
+                                <div className="font-medium text-sm text-[#0D1117] mb-1">{deal.buyerName}</div>
+                                <div className="text-xs text-[#4EA8A1] mb-3">{deal.propertyName}</div>
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="text-sm font-semibold text-[#0D1117] bg-[#0D1117]/5 px-2 py-1 rounded">{deal.budget || '—'}</span>
+                                </div>
+                                <div className="flex items-center gap-2 pt-3 border-t border-[#E5E7EB]">
+                                  <div className="w-6 h-6 rounded-full bg-[#4EA8A1] flex items-center justify-center">
+                                    <span className="text-white text-[10px] font-medium">{agentInitials}</span>
+                                  </div>
+                                  <span className="text-xs text-[#6B7280]">{deal.agent.firstName} {deal.agent.lastName || ''}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="space-y-3">
-                        {stageDeals.map((deal) => (
-                          <button
-                            key={deal.id}
-                            onClick={() => setSelectedDeal(deal)}
-                            className={`w-full bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer text-left ${
-                              stage === 'Closed Won' ? 'border-l-4 border-l-[#10B981]' :
-                              stage === 'Closed Lost' ? 'border-l-4 border-l-[#EF4444] opacity-70' :
-                              'border-[#E5E7EB]'
-                            }`}
-                          >
-                            <div className="font-medium text-sm text-[#0D1117] mb-1">{deal.buyer}</div>
-                            <div className="text-xs text-[#4EA8A1] mb-3">{deal.property}</div>
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-sm font-semibold text-[#0D1117] bg-[#0D1117]/5 px-2 py-1 rounded">{deal.value}</span>
-                              <span className="text-xs text-[#9CA3AF]">{deal.daysInStage}d</span>
-                            </div>
-                            <div className="flex items-center gap-2 pt-3 border-t border-[#E5E7EB]">
-                              <div className="w-6 h-6 rounded-full bg-[#4EA8A1] flex items-center justify-center">
-                                <span className="text-white text-[10px] font-medium">{deal.agentAvatar}</span>
-                              </div>
-                              <span className="text-xs text-[#6B7280]">{deal.agent}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
@@ -322,24 +454,22 @@ export function Properties() {
         {selectedListing && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-lg font-semibold text-[#0D1117] mb-1">{selectedListing.name}</h2>
-              <p className="text-sm text-[#6B7280]">{selectedListing.address}, {selectedListing.location}</p>
+              <h2 className="text-lg font-semibold text-[#0D1117] mb-1">{selectedListing.title || 'Untitled'}</h2>
+              <p className="text-sm text-[#6B7280]">{selectedListing.fullAddress || '—'}</p>
             </div>
             <div className="flex items-center gap-3">
-              <StatusChip status={listingStatus}>{listingStatus.charAt(0).toUpperCase() + listingStatus.slice(1)}</StatusChip>
-              <span className="text-2xl font-semibold text-[#0D1117]">{selectedListing.price}</span>
+              <StatusChip status={displayStatus}>{displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}</StatusChip>
+              <span className="text-2xl font-semibold text-[#0D1117]">{formatPrice(selectedListing.priceNGN)}</span>
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { label: 'Leads', value: selectedListing.leads },
-                { label: 'Agents', value: selectedListing.agents },
-                { label: 'Days', value: selectedListing.daysOnPlatform },
-              ].map((stat) => (
-                <div key={stat.label} className="text-center p-4 bg-[#F9FAFB] rounded-lg">
-                  <div className="text-2xl font-semibold text-[#0D1117]">{stat.value}</div>
-                  <div className="text-xs text-[#6B7280] mt-1">{stat.label}</div>
-                </div>
-              ))}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-[#F9FAFB] rounded-lg">
+                <div className="text-2xl font-semibold text-[#0D1117]">{selectedListing._count?.leads ?? 0}</div>
+                <div className="text-xs text-[#6B7280] mt-1">Leads</div>
+              </div>
+              <div className="text-center p-4 bg-[#F9FAFB] rounded-lg">
+                <div className="text-sm font-medium text-[#0D1117]">{selectedListing.user.firstName} {selectedListing.user.lastName || ''}</div>
+                <div className="text-xs text-[#6B7280] mt-1">Agent</div>
+              </div>
             </div>
             <label className="flex items-center justify-between p-4 bg-[#F9FAFB] rounded-lg cursor-pointer">
               <span className="text-sm font-medium text-[#0D1117]">Tag as Exclusive</span>
@@ -380,30 +510,34 @@ export function Properties() {
         {selectedDeal && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-lg font-semibold text-[#0D1117] mb-1">{selectedDeal.buyer}</h2>
-              <p className="text-sm text-[#4EA8A1]">{selectedDeal.property}</p>
+              <h2 className="text-lg font-semibold text-[#0D1117] mb-1">{selectedDeal.buyerName}</h2>
+              <p className="text-sm text-[#4EA8A1]">{selectedDeal.propertyName}</p>
             </div>
             <div>
-              <div className="text-xs text-[#6B7280] mb-1">Deal Value</div>
-              <div className="text-2xl font-semibold text-[#0D1117]">{selectedDeal.value}</div>
+              <div className="text-xs text-[#6B7280] mb-1">Budget</div>
+              <div className="text-2xl font-semibold text-[#0D1117]">{selectedDeal.budget || '—'}</div>
             </div>
             <div>
               <div className="text-xs text-[#6B7280] mb-2">Assigned Agent</div>
               <div className="flex items-center gap-3 p-3 bg-[#F9FAFB] rounded-lg">
                 <div className="w-10 h-10 rounded-full bg-[#4EA8A1] flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">{selectedDeal.agentAvatar}</span>
+                  <span className="text-white text-sm font-medium">
+                    {selectedDeal.agent.firstName[0]}{selectedDeal.agent.lastName?.[0] ?? ''}
+                  </span>
                 </div>
-                <span className="text-sm font-medium text-[#0D1117]">{selectedDeal.agent}</span>
+                <span className="text-sm font-medium text-[#0D1117]">
+                  {selectedDeal.agent.firstName} {selectedDeal.agent.lastName || ''}
+                </span>
               </div>
             </div>
             <div>
               <div className="text-xs text-[#6B7280] mb-3">Current Stage</div>
               <div className="inline-flex items-center px-3 py-1.5 bg-[#4EA8A1]/10 text-[#4EA8A1] rounded-full text-sm font-medium">
-                {selectedDeal.stage}
+                {DEAL_STAGE_LABEL[selectedDeal.stage] || selectedDeal.stage}
               </div>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => handleApproveStage(selectedDeal)} className="flex-1 px-4 py-2.5 bg-[#4EA8A1] text-white text-sm font-medium rounded-lg hover:bg-[#3d8983] transition-colors">Approve Stage</button>
+              <button onClick={() => handleApproveStage(selectedDeal)} className="flex-1 px-4 py-2.5 bg-[#4EA8A1] text-white text-sm font-medium rounded-lg hover:bg-[#3d8983] transition-colors">Advance Stage</button>
               <button onClick={() => toast.info('Deal flagged as suspicious')} className="px-4 py-2.5 border border-[#F59E0B] text-[#F59E0B] text-sm font-medium rounded-lg hover:bg-[#F59E0B]/5 transition-colors">Flag</button>
             </div>
           </div>
@@ -423,27 +557,39 @@ export function Properties() {
         }
       >
         <p className="text-sm text-[#6B7280] mb-4">Are you sure you want to reject this listing?</p>
-        <textarea placeholder="Optional reason..." className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20" rows={3} />
+        <textarea
+          placeholder="Optional reason..."
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20"
+          rows={3}
+        />
       </Modal>
 
       {/* Assign Lead Modal */}
       <Modal
         isOpen={showAssignModal}
-        onClose={() => setShowAssignModal(false)}
+        onClose={() => { setShowAssignModal(false); setSelectedLeadId(null); }}
         title="Assign Lead to Agent"
         footer={
           <>
-            <button onClick={() => setShowAssignModal(false)} className="px-5 py-2 text-sm text-[#6B7280] hover:bg-[#F9FAFB] rounded-lg transition-colors">Cancel</button>
-            <button onClick={handleAssignLead} disabled={!selectedAgent} className="px-5 py-2 bg-[#4EA8A1] text-white text-sm font-medium rounded-lg hover:bg-[#3d8983] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Assign</button>
+            <button onClick={() => { setShowAssignModal(false); setSelectedLeadId(null); }} className="px-5 py-2 text-sm text-[#6B7280] hover:bg-[#F9FAFB] rounded-lg transition-colors">Cancel</button>
+            <button onClick={handleAssignLead} disabled={!selectedAgentId} className="px-5 py-2 bg-[#4EA8A1] text-white text-sm font-medium rounded-lg hover:bg-[#3d8983] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Assign</button>
           </>
         }
       >
         <div className="space-y-4">
           <div className="relative">
             <Search className="w-4 h-4 text-[#6B7280] absolute left-3 top-1/2 -translate-y-1/2" />
-            <input type="text" placeholder="Search agents..." className="w-full pl-10 pr-4 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20" />
+            <input
+              type="text"
+              placeholder="Search agents..."
+              value={agentSearch}
+              onChange={(e) => setAgentSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20"
+            />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {['All', 'Starter', 'Growth', 'Elite', 'Partner'].map((tier) => (
               <button
                 key={tier}
@@ -455,15 +601,32 @@ export function Properties() {
             ))}
           </div>
           <div className="max-h-[300px] overflow-y-auto space-y-2">
-            {filteredAgents.map((agent) => (
-              <label key={agent.id} className="flex items-center gap-3 p-3 border border-[#E5E7EB] rounded-lg hover:bg-[#F9FAFB] cursor-pointer">
-                <input type="radio" name="agent" checked={selectedAgent === agent.id} onChange={() => setSelectedAgent(agent.id)} className="w-4 h-4 text-[#4EA8A1]" />
-                <div>
-                  <div className="text-sm font-medium text-[#0D1117]">{agent.name}</div>
-                  <div className="text-xs text-[#6B7280]">{agent.tier}</div>
-                </div>
-              </label>
-            ))}
+            {agentOptions
+              .filter((a) => {
+                const name = `${a.firstName} ${a.lastName || ''}`.toLowerCase();
+                const matchesSearch = name.includes(agentSearch.toLowerCase());
+                const tier = PLAN_TO_TIER[a.subscriptionPlan] || 'starter';
+                const matchesTier = tierFilter === 'All' || tier === tierFilter.toLowerCase();
+                return matchesSearch && matchesTier;
+              })
+              .map((agent) => (
+                <label key={agent.id} className="flex items-center gap-3 p-3 border border-[#E5E7EB] rounded-lg hover:bg-[#F9FAFB] cursor-pointer">
+                  <input type="radio" name="agent" checked={selectedAgentId === agent.id} onChange={() => setSelectedAgentId(agent.id)} className="w-4 h-4 text-[#4EA8A1]" />
+                  <div className="flex items-center gap-2 flex-1">
+                    <div className="w-8 h-8 rounded-full bg-[#4EA8A1] flex items-center justify-center flex-shrink-0">
+                      <span className="text-white text-xs font-medium">{agent.firstName[0]}{agent.lastName?.[0] ?? ''}</span>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-[#0D1117]">{agent.firstName} {agent.lastName || ''}</div>
+                      <TierChip tier={PLAN_TO_TIER[agent.subscriptionPlan] || 'starter'} />
+                    </div>
+                  </div>
+                </label>
+              ))
+            }
+            {agentOptions.length === 0 && (
+              <div className="text-sm text-[#6B7280] text-center py-4">Loading agents...</div>
+            )}
           </div>
         </div>
       </Modal>
@@ -474,6 +637,7 @@ export function Properties() {
           <p className="text-sm text-[#6B7280]">Same as user end flow</p>
         </div>
       </Modal>
+
     </>
   );
 }

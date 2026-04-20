@@ -1,8 +1,41 @@
 import { Shield, Bell, Users } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast, Toaster } from 'sonner';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+
+interface AdminUser {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email: string;
+  role: string;
+  isActive: boolean;
+}
+
+interface PlatformConfig {
+  defaultCommissionRate: number;
+  eliteTierThreshold: number;
+  partnerTierThreshold: number;
+  leadDistributionModel: string;
+}
+
+const DISTRIBUTION_MODELS = [
+  { value: 'ROUND_ROBIN', label: 'Round Robin' },
+  { value: 'TIER_BASED', label: 'Tier-Based Priority' },
+  { value: 'PERFORMANCE_BASED', label: 'Performance-Based' },
+];
+
+function formatThreshold(value: number): string {
+  return value.toLocaleString('en-NG');
+}
+
+function parseThreshold(str: string): number {
+  return parseFloat(str.replace(/,/g, '')) || 0;
+}
 
 export function Settings() {
+  const { user } = useAuth();
   const [toggles, setToggles] = useState({
     newAgents: true,
     pendingDeals: true,
@@ -11,8 +44,67 @@ export function Settings() {
     inactiveAgents: true,
     weeklyDigest: false,
   });
+  const [teamMembers, setTeamMembers] = useState<AdminUser[]>([]);
+  const [loadingTeam, setLoadingTeam] = useState(true);
 
-  const handleSaveConfig = () => toast.success('Settings saved successfully');
+  const [config, setConfig] = useState<PlatformConfig>({
+    defaultCommissionRate: 10,
+    eliteTierThreshold: 50000000,
+    partnerTierThreshold: 100000000,
+    leadDistributionModel: 'ROUND_ROBIN',
+  });
+  const originalConfig = useRef<PlatformConfig>(config);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+  const [savingConfig, setSavingConfig] = useState(false);
+
+  useEffect(() => {
+    api.get<{ data: PlatformConfig }>('/admin/config')
+      .then((res) => {
+        setConfig(res.data);
+        originalConfig.current = res.data;
+      })
+      .catch(console.error)
+      .finally(() => setLoadingConfig(false));
+  }, []);
+
+  useEffect(() => {
+    Promise.all([
+      api.get<{ data: AdminUser[] }>('/admin/users?role=SUPER_ADMIN&limit=20'),
+      api.get<{ data: AdminUser[] }>('/admin/users?role=ADMIN&limit=20'),
+    ])
+      .then(([superRes, adminRes]) => setTeamMembers([...superRes.data, ...adminRes.data]))
+      .catch(console.error)
+      .finally(() => setLoadingTeam(false));
+  }, []);
+
+  const handleSaveConfig = async () => {
+    setSavingConfig(true);
+    try {
+      const res = await api.patch<{ data: PlatformConfig }>('/admin/config', {
+        defaultCommissionRate: config.defaultCommissionRate,
+        eliteTierThreshold: config.eliteTierThreshold,
+        partnerTierThreshold: config.partnerTierThreshold,
+        leadDistributionModel: config.leadDistributionModel,
+      });
+      setConfig(res.data);
+      originalConfig.current = res.data;
+      toast.success('Settings saved successfully');
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleCancelConfig = () => {
+    setConfig(originalConfig.current);
+  };
+
+  const getRoleLabel = (role: string) => {
+    if (role === 'SUPER_ADMIN') return 'Super Admin';
+    if (role === 'ADMIN') return 'Admin';
+    return role;
+  };
 
   return (
     <>
@@ -36,42 +128,69 @@ export function Settings() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-[#0D1117] mb-2">Default Commission Rate</label>
-                <div className="flex items-center gap-3">
-                  <input type="number" defaultValue={10} className="flex-1 px-4 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20" />
-                  <span className="text-sm text-[#6B7280]">%</span>
+            {loadingConfig ? (
+              <div className="text-sm text-[#6B7280] text-center py-4">Loading...</div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-[#0D1117] mb-2">Default Commission Rate</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        value={config.defaultCommissionRate}
+                        onChange={(e) => setConfig({ ...config, defaultCommissionRate: parseFloat(e.target.value) || 0 })}
+                        className="flex-1 px-4 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20"
+                      />
+                      <span className="text-sm text-[#6B7280]">%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#0D1117] mb-2">Elite Tier Threshold</label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-[#6B7280]">₦</span>
+                      <input
+                        type="text"
+                        value={formatThreshold(config.eliteTierThreshold)}
+                        onChange={(e) => setConfig({ ...config, eliteTierThreshold: parseThreshold(e.target.value) })}
+                        className="flex-1 px-4 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#0D1117] mb-2">Partner Tier Threshold</label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-[#6B7280]">₦</span>
+                      <input
+                        type="text"
+                        value={formatThreshold(config.partnerTierThreshold)}
+                        onChange={(e) => setConfig({ ...config, partnerTierThreshold: parseThreshold(e.target.value) })}
+                        className="flex-1 px-4 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#0D1117] mb-2">Lead Distribution Model</label>
+                    <select
+                      value={config.leadDistributionModel}
+                      onChange={(e) => setConfig({ ...config, leadDistributionModel: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20"
+                    >
+                      {DISTRIBUTION_MODELS.map((m) => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0D1117] mb-2">Elite Tier Threshold</label>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-[#6B7280]">₦</span>
-                  <input type="text" defaultValue="50,000,000" className="flex-1 px-4 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0D1117] mb-2">Partner Tier Threshold</label>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-[#6B7280]">₦</span>
-                  <input type="text" defaultValue="100,000,000" className="flex-1 px-4 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0D1117] mb-2">Lead Distribution Model</label>
-                <select className="w-full px-4 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20">
-                  <option>Round Robin</option>
-                  <option>Tier-Based Priority</option>
-                  <option>Performance-Based</option>
-                </select>
-              </div>
-            </div>
 
-            <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-[#E5E7EB]">
-              <button className="px-4 py-2 text-sm text-[#6B7280] hover:bg-[#F9FAFB] rounded-lg transition-colors">Cancel</button>
-              <button onClick={handleSaveConfig} className="px-4 py-2 bg-[#4EA8A1] text-white text-sm font-medium rounded-lg hover:bg-[#3d8983] transition-colors">Save Changes</button>
-            </div>
+                <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-[#E5E7EB]">
+                  <button onClick={handleCancelConfig} className="px-4 py-2 text-sm text-[#6B7280] hover:bg-[#F9FAFB] rounded-lg transition-colors">Cancel</button>
+                  <button onClick={handleSaveConfig} disabled={savingConfig} className="px-4 py-2 bg-[#4EA8A1] text-white text-sm font-medium rounded-lg hover:bg-[#3d8983] transition-colors disabled:opacity-60">
+                    {savingConfig ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Team Members */}
@@ -90,27 +209,38 @@ export function Settings() {
             </div>
 
             <div className="space-y-3">
-              {[
-                { name: 'Admin User', email: 'admin@inda.ng', role: 'Super Admin', avatar: 'AD' },
-                { name: 'Sarah Okonkwo', email: 'sarah@inda.ng', role: 'Admin', avatar: 'SO' },
-                { name: 'Michael Eze', email: 'michael@inda.ng', role: 'Manager', avatar: 'ME' },
-              ].map((member, index) => (
-                <div key={index} className="flex items-center justify-between p-4 border border-[#E5E7EB] rounded-lg hover:bg-[#F9FAFB] transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#4EA8A1] flex items-center justify-center">
-                      <span className="text-white text-sm font-medium">{member.avatar}</span>
+              {loadingTeam ? (
+                <div className="text-sm text-[#6B7280] text-center py-4">Loading...</div>
+              ) : teamMembers.length === 0 ? (
+                <div className="text-sm text-[#6B7280] text-center py-4">No admin users found</div>
+              ) : (
+                teamMembers.map((member) => {
+                  const initials = `${member.firstName[0]}${member.lastName?.[0] ?? ''}`;
+                  const isCurrentUser = member.id === user?.id;
+                  return (
+                    <div key={member.id} className="flex items-center justify-between p-4 border border-[#E5E7EB] rounded-lg hover:bg-[#F9FAFB] transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[#4EA8A1] flex items-center justify-center">
+                          <span className="text-white text-sm font-medium">{initials}</span>
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-[#0D1117]">
+                            {member.firstName} {member.lastName || ''}
+                            {isCurrentUser && <span className="ml-2 text-xs text-[#6B7280]">(you)</span>}
+                          </div>
+                          <div className="text-sm text-[#6B7280]">{member.email}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-[#6B7280]">{getRoleLabel(member.role)}</span>
+                        {!isCurrentUser && (
+                          <button className="text-sm text-[#4EA8A1] hover:underline">Edit</button>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-sm font-medium text-[#0D1117]">{member.name}</div>
-                      <div className="text-sm text-[#6B7280]">{member.email}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-[#6B7280]">{member.role}</span>
-                    <button className="text-sm text-[#4EA8A1] hover:underline">Edit</button>
-                  </div>
-                </div>
-              ))}
+                  );
+                })
+              )}
             </div>
           </div>
 

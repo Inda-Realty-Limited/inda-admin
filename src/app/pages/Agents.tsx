@@ -1,25 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { TierChip } from '../components/TierChip';
 import { StatusChip } from '../components/StatusChip';
 import { Search, Filter, Plus } from 'lucide-react';
+import { api } from '../../lib/api';
 
-const agents = [
-  { id: 1, name: 'Oluwaseun Adeyemi', avatar: 'OA', tier: 'elite' as const, leads: 45, deals: 24, revenue: '₦48.2M', status: 'active' as const },
-  { id: 2, name: 'Chidinma Okonkwo', avatar: 'CO', tier: 'growth' as const, leads: 38, deals: 19, revenue: '₦38.5M', status: 'active' as const },
-  { id: 3, name: 'Ibrahim Mohammed', avatar: 'IM', tier: 'elite' as const, leads: 42, deals: 17, revenue: '₦36.8M', status: 'active' as const },
-  { id: 4, name: 'Blessing Nwosu', avatar: 'BN', tier: 'growth' as const, leads: 31, deals: 15, revenue: '₦32.4M', status: 'active' as const },
-  { id: 5, name: 'Tunde Bakare', avatar: 'TB', tier: 'partner' as const, leads: 28, deals: 14, revenue: '₦31.2M', status: 'active' as const },
-  { id: 6, name: 'Amara Eze', avatar: 'AE', tier: 'starter' as const, leads: 18, deals: 8, revenue: '₦18.4M', status: 'active' as const },
-  { id: 7, name: 'Yusuf Hassan', avatar: 'YH', tier: 'growth' as const, leads: 25, deals: 11, revenue: '₦24.8M', status: 'suspended' as const },
-  { id: 8, name: 'Ngozi Okoli', avatar: 'NO', tier: 'starter' as const, leads: 15, deals: 6, revenue: '₦14.2M', status: 'pending' as const },
-];
+const PLAN_TO_TIER: Record<string, 'starter' | 'growth' | 'elite' | 'partner'> = {
+  STARTER: 'starter',
+  GROWTH: 'growth',
+  ELITE: 'elite',
+  PARTNER: 'partner',
+};
+
+function agentStatus(isActive: boolean, approvalStatus: string | null): 'active' | 'pending' | 'suspended' {
+  if (approvalStatus === 'PENDING') return 'pending';
+  if (!isActive) return 'suspended';
+  return 'active';
+}
+
+interface Agent {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email: string;
+  subscriptionPlan: string;
+  agentApprovalStatus: string | null;
+  isActive: boolean;
+  dealsCount: number;
+  listingsCount: number;
+  leadsCount: number;
+  revenue: number;
+}
 
 const tiers = [
   {
     name: 'Starter',
     tier: 'starter' as const,
-    count: 48,
+    plan: 'STARTER',
     benefits: [
       'Up to 10 leads per month',
       'Standard listings visibility',
@@ -30,7 +47,7 @@ const tiers = [
   {
     name: 'Growth',
     tier: 'growth' as const,
-    count: 82,
+    plan: 'GROWTH',
     benefits: [
       'Up to 30 leads per month',
       'Priority listings visibility',
@@ -42,7 +59,7 @@ const tiers = [
   {
     name: 'Elite',
     tier: 'elite' as const,
-    count: 64,
+    plan: 'ELITE',
     benefits: [
       'Up to 50 leads per month',
       'Featured listings visibility',
@@ -55,7 +72,7 @@ const tiers = [
   {
     name: 'Partner',
     tier: 'partner' as const,
-    count: 40,
+    plan: 'PARTNER',
     benefits: [
       'Unlimited leads',
       'Exclusive + featured visibility',
@@ -91,13 +108,40 @@ export function Agents() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const searchParams = new URLSearchParams(location.search);
   const activeTab = searchParams.get('tab') || 'all-agents';
 
-  const setActiveTab = (tab: string) => {
-    navigate(`/agents?tab=${tab}`);
-  };
+  const setActiveTab = (tab: string) => navigate(`/agents?tab=${tab}`);
+
+  const fetchAgents = useCallback(async (search?: string) => {
+    setLoading(true);
+    try {
+      const query = search ? `?search=${encodeURIComponent(search)}&limit=100` : '?limit=100';
+      const res = await api.get<{ data: Agent[] }>(`/admin/agents${query}`);
+      setAgents(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => fetchAgents(searchQuery || undefined), 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, fetchAgents]);
+
+  const tierCounts = tiers.reduce<Record<string, number>>((acc, t) => {
+    acc[t.plan] = agents.filter((a) => a.subscriptionPlan === t.plan).length;
+    return acc;
+  }, {});
 
   return (
     <div className="p-6 max-w-[1280px]">
@@ -155,55 +199,67 @@ export function Agents() {
                 <tr className="bg-[#F9FAFB]">
                   <th className="text-left text-xs font-medium text-[#6B7280] px-6 py-3">Agent</th>
                   <th className="text-left text-xs font-medium text-[#6B7280] px-6 py-3">Tier</th>
-                  <th className="text-left text-xs font-medium text-[#6B7280] px-6 py-3">Leads Assigned</th>
+                  <th className="text-left text-xs font-medium text-[#6B7280] px-6 py-3">Leads</th>
                   <th className="text-left text-xs font-medium text-[#6B7280] px-6 py-3">Deals Closed</th>
-                  <th className="text-left text-xs font-medium text-[#6B7280] px-6 py-3">Revenue</th>
+                  <th className="text-left text-xs font-medium text-[#6B7280] px-6 py-3">Listings</th>
                   <th className="text-left text-xs font-medium text-[#6B7280] px-6 py-3">Status</th>
                   <th className="text-left text-xs font-medium text-[#6B7280] px-6 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {agents
-                  .filter((a) =>
-                    a.name.toLowerCase().includes(searchQuery.toLowerCase())
-                  )
-                  .map((agent) => (
-                    <tr key={agent.id} className="border-t border-[#E5E7EB] hover:bg-[#F3F9F8] transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-[#4EA8A1] flex items-center justify-center">
-                            <span className="text-white text-xs font-medium">{agent.avatar}</span>
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-sm text-[#6B7280]">Loading...</td>
+                  </tr>
+                ) : agents.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-sm text-[#6B7280]">No agents found</td>
+                  </tr>
+                ) : (
+                  agents.map((agent) => {
+                    const status = agentStatus(agent.isActive, agent.agentApprovalStatus);
+                    const initials = `${agent.firstName[0]}${agent.lastName?.[0] ?? ''}`;
+                    return (
+                      <tr key={agent.id} className="border-t border-[#E5E7EB] hover:bg-[#F3F9F8] transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-[#4EA8A1] flex items-center justify-center">
+                              <span className="text-white text-xs font-medium">{initials}</span>
+                            </div>
+                            <span className="text-sm font-medium text-[#0D1117]">
+                              {agent.firstName} {agent.lastName}
+                            </span>
                           </div>
-                          <span className="text-sm font-medium text-[#0D1117]">{agent.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <TierChip tier={agent.tier} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-[#6B7280] tabular-nums">{agent.leads}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-[#6B7280] tabular-nums">{agent.deals}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-medium text-[#0D1117] tabular-nums">{agent.revenue}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusChip status={agent.status}>
-                          {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
-                        </StatusChip>
-                      </td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => navigate(`/agents/${agent.id}`)}
-                          className="text-sm text-[#4EA8A1] hover:underline"
-                        >
-                          View Profile
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          <TierChip tier={PLAN_TO_TIER[agent.subscriptionPlan] || 'starter'} />
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-[#6B7280] tabular-nums">{agent.leadsCount}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-[#6B7280] tabular-nums">{agent.dealsCount}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-[#6B7280] tabular-nums">{agent.listingsCount}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <StatusChip status={status}>
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </StatusChip>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => navigate(`/agents/${agent.id}`)}
+                            className="text-sm text-[#4EA8A1] hover:underline"
+                          >
+                            View Profile
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -216,7 +272,7 @@ export function Agents() {
             <div key={tier.tier} className="bg-white border border-[#E5E7EB] rounded-[10px] p-6">
               <div className="flex items-center justify-between mb-4">
                 <TierChip tier={tier.tier} />
-                <span className="text-sm text-[#6B7280]">{tier.count} agents</span>
+                <span className="text-sm text-[#6B7280]">{tierCounts[tier.plan] ?? 0} agents</span>
               </div>
               <h3 className="text-lg font-semibold text-[#0D1117] mb-4">{tier.name}</h3>
               <ul className="space-y-2.5 mb-6">
@@ -231,7 +287,10 @@ export function Agents() {
                 <button className="w-full px-4 py-2 text-sm font-medium text-[#4EA8A1] border border-[#4EA8A1] rounded-lg hover:bg-[#4EA8A1]/5 transition-colors">
                   Edit Benefits
                 </button>
-                <button className="w-full px-4 py-2 text-sm text-[#6B7280] hover:bg-[#F9FAFB] rounded-lg transition-colors">
+                <button
+                  onClick={() => setActiveTab('all-agents')}
+                  className="w-full px-4 py-2 text-sm text-[#6B7280] hover:bg-[#F9FAFB] rounded-lg transition-colors"
+                >
                   View Agents →
                 </button>
               </div>
