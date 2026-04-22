@@ -144,7 +144,7 @@ export function Agents() {
   }, {});
 
   return (
-    <div className="p-6 max-w-[1280px]">
+    <div className="p-6 w-full">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-[20px] font-semibold text-[#0D1117]">Agents</h1>
         <button className="bg-[#4EA8A1] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#3d8983] transition-colors">

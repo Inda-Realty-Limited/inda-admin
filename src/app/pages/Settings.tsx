@@ -18,6 +18,12 @@ interface PlatformConfig {
   eliteTierThreshold: number;
   partnerTierThreshold: number;
   leadDistributionModel: string;
+  notifyNewAgents: boolean;
+  notifyPendingDeals: boolean;
+  notifyHighValueListings: boolean;
+  notifyBudgetThreshold: boolean;
+  notifyInactiveAgents: boolean;
+  notifyWeeklyDigest: boolean;
 }
 
 const DISTRIBUTION_MODELS = [
@@ -36,14 +42,6 @@ function parseThreshold(str: string): number {
 
 export function Settings() {
   const { user } = useAuth();
-  const [toggles, setToggles] = useState({
-    newAgents: true,
-    pendingDeals: true,
-    highValue: true,
-    budgetThreshold: false,
-    inactiveAgents: true,
-    weeklyDigest: false,
-  });
   const [teamMembers, setTeamMembers] = useState<AdminUser[]>([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
 
@@ -52,10 +50,17 @@ export function Settings() {
     eliteTierThreshold: 50000000,
     partnerTierThreshold: 100000000,
     leadDistributionModel: 'ROUND_ROBIN',
+    notifyNewAgents: true,
+    notifyPendingDeals: true,
+    notifyHighValueListings: true,
+    notifyBudgetThreshold: false,
+    notifyInactiveAgents: true,
+    notifyWeeklyDigest: false,
   });
   const originalConfig = useRef<PlatformConfig>(config);
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [savingToggle, setSavingToggle] = useState<string | null>(null);
 
   useEffect(() => {
     api.get<{ data: PlatformConfig }>('/admin/config')
@@ -86,13 +91,27 @@ export function Settings() {
         partnerTierThreshold: config.partnerTierThreshold,
         leadDistributionModel: config.leadDistributionModel,
       });
-      setConfig(res.data);
-      originalConfig.current = res.data;
+      setConfig((prev) => ({ ...prev, ...res.data }));
+      originalConfig.current = { ...originalConfig.current, ...res.data };
       toast.success('Settings saved successfully');
     } catch {
       toast.error('Failed to save settings');
     } finally {
       setSavingConfig(false);
+    }
+  };
+
+  const handleToggleNotification = async (key: keyof PlatformConfig, value: boolean) => {
+    setConfig((prev) => ({ ...prev, [key]: value }));
+    setSavingToggle(key);
+    try {
+      await api.patch('/admin/config', { [key]: value });
+    } catch {
+      // Revert on failure
+      setConfig((prev) => ({ ...prev, [key]: !value }));
+      toast.error('Failed to update notification preference');
+    } finally {
+      setSavingToggle(null);
     }
   };
 
@@ -110,7 +129,7 @@ export function Settings() {
     <>
       <Toaster position="bottom-right" />
 
-      <div className="p-6 max-w-[1280px]">
+      <div className="p-6 w-full">
         <div className="mb-6">
           <h1 className="text-[22px] font-semibold text-[#0D1117]">Settings</h1>
         </div>
@@ -257,14 +276,16 @@ export function Settings() {
             </div>
 
             <div className="space-y-4">
-              {[
-                { key: 'newAgents', label: 'New agent registrations', description: 'Get notified when a new agent signs up' },
-                { key: 'pendingDeals', label: 'Pending deal approvals', description: 'Alert when deals require admin approval' },
-                { key: 'highValue', label: 'High-value property submissions', description: 'Notify for properties over ₦50M' },
-                { key: 'budgetThreshold', label: 'Marketing budget thresholds', description: 'Alert when agents reach 80% of budget' },
-                { key: 'inactiveAgents', label: 'Inactive agent warnings', description: 'Notify when agents are inactive for 7+ days' },
-                { key: 'weeklyDigest', label: 'Weekly performance summary', description: 'Receive weekly analytics digest' },
-              ].map((notification) => (
+              {(
+                [
+                  { key: 'notifyNewAgents' as const, label: 'New agent registrations', description: 'Get notified when a new agent signs up' },
+                  { key: 'notifyPendingDeals' as const, label: 'Pending deal approvals', description: 'Alert when a new deal is created' },
+                  { key: 'notifyHighValueListings' as const, label: 'High-value property submissions', description: 'Notify for properties over ₦50M' },
+                  { key: 'notifyBudgetThreshold' as const, label: 'Marketing budget thresholds', description: 'Alert when agents reach 80% of budget' },
+                  { key: 'notifyInactiveAgents' as const, label: 'Inactive agent warnings', description: 'Notify when agents are inactive for 7+ days' },
+                  { key: 'notifyWeeklyDigest' as const, label: 'Weekly performance summary', description: 'Receive weekly analytics digest' },
+                ] as { key: keyof PlatformConfig; label: string; description: string }[]
+              ).map((notification) => (
                 <div key={notification.key} className="flex items-start justify-between py-3 border-b border-[#E5E7EB] last:border-0">
                   <div className="flex-1">
                     <div className="text-sm font-medium text-[#0D1117] mb-1">{notification.label}</div>
@@ -273,11 +294,12 @@ export function Settings() {
                   <label className="relative inline-block w-11 h-6 flex-shrink-0">
                     <input
                       type="checkbox"
-                      checked={toggles[notification.key as keyof typeof toggles]}
-                      onChange={(e) => setToggles({ ...toggles, [notification.key]: e.target.checked })}
+                      checked={Boolean(config[notification.key])}
+                      disabled={savingToggle === notification.key || loadingConfig}
+                      onChange={(e) => handleToggleNotification(notification.key, e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-[#E5E7EB] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4EA8A1]" />
+                    <div className="w-11 h-6 bg-[#E5E7EB] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4EA8A1] peer-disabled:opacity-50" />
                   </label>
                 </div>
               ))}

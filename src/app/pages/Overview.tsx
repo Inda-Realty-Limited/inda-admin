@@ -102,7 +102,7 @@ export function Overview() {
   const pendingCount = (stats?.pendingListings || 0) + (stats?.pendingReports || 0);
 
   return (
-    <div className="p-6 max-w-[1280px]">
+    <div className="p-6 w-full">
       <div className="mb-6">
         <h1 className="text-[22px] font-semibold text-[#0D1117]">Overview</h1>
       </div>

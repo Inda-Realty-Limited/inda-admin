@@ -140,7 +140,7 @@ export function AgentDetail() {
   return (
     <>
       <Toaster position="bottom-right" />
-      <div className="p-6 max-w-[1280px]">
+      <div className="p-6 w-full">
         <button
           onClick={() => navigate('/agents')}
           className="flex items-center gap-2 text-sm text-[#6B7280] hover:text-[#0D1117] mb-6"
