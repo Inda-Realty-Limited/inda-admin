@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { PropertyUploadWizard } from '../../components/listings/PropertyUploadWizard';
 import { StatusChip } from '../components/StatusChip';
 import { TierChip } from '../components/TierChip';
 import { Modal } from '../components/Modal';
@@ -20,9 +21,23 @@ const DEAL_STAGE_LABEL: Record<string, string> = {
 
 const KANBAN_COLUMNS = ['Lead', 'Contacted', 'Inspection', 'Offer Made', 'Negotiation', 'Closed Won', 'Closed Lost'];
 
+const DISPUTE_STATUS_LABEL: Record<string, string> = {
+  pending: 'Pending',
+  reviewing: 'Reviewing',
+  resolved: 'Resolved',
+  rejected: 'Rejected',
+};
+
 function modStatusToChip(status: string): 'active' | 'pending' | 'rejected' {
   if (status === 'APPROVED') return 'active';
   if (status === 'REJECTED') return 'rejected';
+  return 'pending';
+}
+
+function disputeStatusToChip(status: string): 'pending' | 'in-progress' | 'completed' | 'rejected' {
+  if (status === 'reviewing') return 'in-progress';
+  if (status === 'resolved') return 'completed';
+  if (status === 'rejected') return 'rejected';
   return 'pending';
 }
 
@@ -77,6 +92,29 @@ interface AgentOption {
   subscriptionPlan: string;
 }
 
+interface Dispute {
+  id: string;
+  disputeId: string;
+  category: string;
+  explanation: string;
+  status: string;
+  resolution: string | null;
+  userId: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  listing: {
+    id: string;
+    title: string | null;
+    fullAddress: string | null;
+  };
+  reporter: {
+    id: string;
+    firstName: string;
+    lastName: string | null;
+    email: string;
+  } | null;
+}
+
 export function Properties() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -88,9 +126,11 @@ export function Properties() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [loadingListings, setLoadingListings] = useState(false);
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [loadingDeals, setLoadingDeals] = useState(false);
+  const [loadingDisputes, setLoadingDisputes] = useState(false);
 
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isExclusive, setIsExclusive] = useState(false);
@@ -106,6 +146,9 @@ export function Properties() {
   const [tierFilter, setTierFilter] = useState('All');
 
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+  const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
+  const [disputeResolution, setDisputeResolution] = useState('');
+  const [isUpdatingDispute, setIsUpdatingDispute] = useState(false);
   const [showAddListingModal, setShowAddListingModal] = useState(false);
 
   const setActiveTab = (tab: string) => navigate(`/properties?tab=${tab}`);
@@ -139,17 +182,34 @@ export function Properties() {
     finally { setLoadingDeals(false); }
   }, []);
 
+  const fetchDisputes = useCallback(async (search?: string) => {
+    setLoadingDisputes(true);
+    try {
+      const q = search ? `?search=${encodeURIComponent(search)}&limit=50` : '?limit=50';
+      const res = await api.get<{ data: Dispute[] }>(`/admin/disputes${q}`);
+      setDisputes(res.data);
+    } catch (err) { console.error(err); }
+    finally { setLoadingDisputes(false); }
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'listings') fetchListings();
     else if (activeTab === 'leads') fetchLeads();
     else if (activeTab === 'deals') fetchDeals();
-  }, [activeTab, fetchListings, fetchLeads, fetchDeals]);
+    else if (activeTab === 'disputes') fetchDisputes();
+  }, [activeTab, fetchListings, fetchLeads, fetchDeals, fetchDisputes]);
 
   useEffect(() => {
-    if (activeTab !== 'listings') return;
-    const t = setTimeout(() => fetchListings(searchQuery || undefined), 400);
+    if (!['listings', 'disputes'].includes(activeTab)) return;
+    const t = setTimeout(() => {
+      if (activeTab === 'listings') {
+        fetchListings(searchQuery || undefined);
+      } else if (activeTab === 'disputes') {
+        fetchDisputes(searchQuery || undefined);
+      }
+    }, 400);
     return () => clearTimeout(t);
-  }, [searchQuery, activeTab, fetchListings]);
+  }, [searchQuery, activeTab, fetchListings, fetchDisputes]);
 
   const handleListingClick = (listing: Listing) => {
     setSelectedListing(listing);
@@ -228,6 +288,32 @@ export function Properties() {
     }
   };
 
+  const openDisputePanel = (dispute: Dispute) => {
+    setSelectedDispute(dispute);
+    setDisputeResolution(dispute.resolution || '');
+  };
+
+  const handleDisputeStatusUpdate = async (status: 'reviewing' | 'resolved' | 'rejected') => {
+    if (!selectedDispute) return;
+
+    setIsUpdatingDispute(true);
+    try {
+      const res = await api.patch<{ data: Dispute }>(`/admin/disputes/${selectedDispute.id}`, {
+        status,
+        resolution: disputeResolution,
+      });
+
+      const updated = res.data;
+      setSelectedDispute(updated);
+      setDisputes(disputes.map((dispute) => dispute.id === updated.id ? updated : dispute));
+      toast.success(`Dispute marked as ${DISPUTE_STATUS_LABEL[status].toLowerCase()}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update dispute');
+    } finally {
+      setIsUpdatingDispute(false);
+    }
+  };
+
   const groupedDeals = deals.reduce<Record<string, Deal[]>>((acc, deal) => {
     const label = DEAL_STAGE_LABEL[deal.stage] || deal.stage;
     if (!acc[label]) acc[label] = [];
@@ -254,7 +340,7 @@ export function Properties() {
         </div>
 
         <div className="flex items-center gap-8 border-b border-[#E5E7EB] mb-6">
-          {['listings', 'leads', 'deals'].map((tab) => (
+          {['listings', 'leads', 'deals', 'disputes'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -447,6 +533,70 @@ export function Properties() {
             )}
           </div>
         )}
+
+        {activeTab === 'disputes' && (
+          <div>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="flex-1 relative">
+                <Search className="w-4 h-4 text-[#6B7280] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search disputes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20"
+                />
+              </div>
+            </div>
+            <div className="bg-white border border-[#E5E7EB] rounded-[10px] overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-[#F9FAFB] h-12">
+                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Property</th>
+                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Category</th>
+                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Reporter</th>
+                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Status</th>
+                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Date</th>
+                    <th className="text-left text-[13px] font-medium text-[#6B7280] px-6 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingDisputes ? (
+                    <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-[#6B7280]">Loading...</td></tr>
+                  ) : disputes.length === 0 ? (
+                    <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-[#6B7280]">No disputes found</td></tr>
+                  ) : (
+                    disputes.map((dispute) => (
+                      <tr key={dispute.id} className="border-b border-[#F3F4F6] hover:bg-[#F9FFFE] transition-colors h-14">
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-[#0D1117]">{dispute.listing.title || 'Untitled'}</div>
+                          <div className="text-xs text-[#6B7280]">{dispute.listing.fullAddress || '—'}</div>
+                        </td>
+                        <td className="px-6 py-4"><span className="text-sm text-[#6B7280]">{dispute.category}</span></td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-[#6B7280]">
+                            {dispute.reporter
+                              ? `${dispute.reporter.firstName} ${dispute.reporter.lastName || ''}`.trim()
+                              : dispute.userId || 'Unknown'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <StatusChip status={disputeStatusToChip(dispute.status)}>
+                            {DISPUTE_STATUS_LABEL[dispute.status] || dispute.status}
+                          </StatusChip>
+                        </td>
+                        <td className="px-6 py-4"><span className="text-sm text-[#6B7280]">{new Date(dispute.createdAt).toLocaleDateString()}</span></td>
+                        <td className="px-6 py-4">
+                          <button onClick={() => openDisputePanel(dispute)} className="text-sm text-[#4EA8A1] hover:underline">Review</button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Listing Detail Panel */}
@@ -544,6 +694,79 @@ export function Properties() {
         )}
       </SlideInPanel>
 
+      <SlideInPanel isOpen={selectedDispute !== null} onClose={() => setSelectedDispute(null)} title="Dispute Review">
+        {selectedDispute && (
+          <div className="space-y-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <StatusChip status={disputeStatusToChip(selectedDispute.status)}>
+                  {DISPUTE_STATUS_LABEL[selectedDispute.status] || selectedDispute.status}
+                </StatusChip>
+                <span className="text-xs font-mono text-[#6B7280]">{selectedDispute.disputeId}</span>
+              </div>
+              <h2 className="text-lg font-semibold text-[#0D1117] mb-1">{selectedDispute.listing.title || 'Untitled'}</h2>
+              <p className="text-sm text-[#6B7280]">{selectedDispute.listing.fullAddress || '—'}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-[#F9FAFB] rounded-lg">
+                <div className="text-xs text-[#6B7280] mb-1">Category</div>
+                <div className="text-sm font-medium text-[#0D1117]">{selectedDispute.category}</div>
+              </div>
+              <div className="p-4 bg-[#F9FAFB] rounded-lg">
+                <div className="text-xs text-[#6B7280] mb-1">Reporter</div>
+                <div className="text-sm font-medium text-[#0D1117]">
+                  {selectedDispute.reporter
+                    ? `${selectedDispute.reporter.firstName} ${selectedDispute.reporter.lastName || ''}`.trim()
+                    : selectedDispute.userId || 'Unknown'}
+                </div>
+                {selectedDispute.reporter?.email && (
+                  <div className="text-xs text-[#6B7280] mt-1">{selectedDispute.reporter.email}</div>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-[#6B7280] mb-2">Dispute Details</div>
+              <div className="p-4 bg-[#F9FAFB] rounded-lg text-sm text-[#0D1117] leading-6">
+                {selectedDispute.explanation}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-[#6B7280] mb-2">Resolution / Treatment Notes</div>
+              <textarea
+                value={disputeResolution}
+                onChange={(e) => setDisputeResolution(e.target.value)}
+                placeholder="Document what was reviewed, the correction made, or why the dispute was rejected."
+                rows={5}
+                className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4EA8A1]/20"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleDisputeStatusUpdate('reviewing')}
+                disabled={isUpdatingDispute}
+                className="flex-1 px-4 py-2.5 border border-[#E5E7EB] text-sm font-medium rounded-lg hover:bg-[#F9FAFB] transition-colors disabled:opacity-50"
+              >
+                Mark Reviewing
+              </button>
+              <button
+                onClick={() => handleDisputeStatusUpdate('resolved')}
+                disabled={isUpdatingDispute}
+                className="flex-1 px-4 py-2.5 bg-[#4EA8A1] text-white text-sm font-medium rounded-lg hover:bg-[#3d8983] transition-colors disabled:opacity-50"
+              >
+                Resolve
+              </button>
+              <button
+                onClick={() => handleDisputeStatusUpdate('rejected')}
+                disabled={isUpdatingDispute}
+                className="flex-1 px-4 py-2.5 bg-[#EF4444] text-white text-sm font-medium rounded-lg hover:bg-[#dc2626] transition-colors disabled:opacity-50"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        )}
+      </SlideInPanel>
+
       {/* Reject Listing Modal */}
       <Modal
         isOpen={showRejectModal}
@@ -632,11 +855,18 @@ export function Properties() {
       </Modal>
 
       {/* Add Listing Modal */}
-      <Modal isOpen={showAddListingModal} onClose={() => setShowAddListingModal(false)} title="Add Listing">
-        <div className="text-center py-8">
-          <p className="text-sm text-[#6B7280]">Same as user end flow</p>
+      {showAddListingModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddListingModal(false)} />
+          <div className="relative bg-white w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <PropertyUploadWizard
+              onComplete={() => { fetchListings(); setShowAddListingModal(false); }}
+              onCancel={() => setShowAddListingModal(false)}
+              mode="create"
+            />
+          </div>
         </div>
-      </Modal>
+      )}
 
     </>
   );
