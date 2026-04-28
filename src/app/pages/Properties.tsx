@@ -5,7 +5,7 @@ import { StatusChip } from '../components/StatusChip';
 import { TierChip } from '../components/TierChip';
 import { Modal } from '../components/Modal';
 import { SlideInPanel } from '../components/SlideInPanel';
-import { Search, Filter, ChevronDown, Plus } from 'lucide-react';
+import { Search, Filter, ChevronDown, Plus, RefreshCw, CheckCircle2, AlertCircle, Clock3 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { api } from '../../lib/api';
 
@@ -59,8 +59,36 @@ interface Listing {
   fullAddress: string | null;
   priceNGN: number | null;
   moderationStatus: string;
+  locationIntelligenceStatus?: 'pending' | 'success' | 'failed' | string | null;
   user: { id: string; firstName: string; lastName: string | null };
   _count: { leads: number };
+}
+
+function getEnrichmentMeta(status?: string | null) {
+  if (status === 'success') {
+    return {
+      label: 'Insights Ready',
+      className: 'bg-[#ECFDF3] text-[#027A48] border-[#ABEFC6]',
+      description: 'Location and investment intelligence is attached to this listing.',
+      icon: CheckCircle2,
+    };
+  }
+
+  if (status === 'failed') {
+    return {
+      label: 'Insights Delayed',
+      className: 'bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]',
+      description: 'Background enrichment failed and can be requeued by an admin.',
+      icon: AlertCircle,
+    };
+  }
+
+  return {
+    label: 'Insights Processing',
+    className: 'bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]',
+    description: 'Background enrichment is still running for this listing.',
+    icon: Clock3,
+  };
 }
 
 interface Lead {
@@ -150,6 +178,7 @@ export function Properties() {
   const [disputeResolution, setDisputeResolution] = useState('');
   const [isUpdatingDispute, setIsUpdatingDispute] = useState(false);
   const [showAddListingModal, setShowAddListingModal] = useState(false);
+  const [isRequeueingEnrichment, setIsRequeueingEnrichment] = useState(false);
 
   const setActiveTab = (tab: string) => navigate(`/properties?tab=${tab}`);
 
@@ -243,6 +272,31 @@ export function Properties() {
   };
 
   const handleAssignToTier = (tier: string) => toast.success(`Listing assigned to ${tier} agents`);
+
+  const handleRequeueEnrichment = async () => {
+    if (!selectedListing || isRequeueingEnrichment) return;
+
+    setIsRequeueingEnrichment(true);
+    try {
+      const res = await api.post<{ data: Listing }>(
+        `/admin/listings/${selectedListing.id}/requeue-enrichment`,
+      );
+      const updatedListing = res.data;
+      setSelectedListing(updatedListing);
+      setListings((prev) =>
+        prev.map((listing) =>
+          listing.id === updatedListing.id
+            ? { ...listing, locationIntelligenceStatus: updatedListing.locationIntelligenceStatus }
+            : listing,
+        ),
+      );
+      toast.success('Listing enrichment requeued');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to requeue enrichment');
+    } finally {
+      setIsRequeueingEnrichment(false);
+    }
+  };
 
   const openAssignModal = async (leadId: string) => {
     setSelectedLeadId(leadId);
@@ -603,6 +657,32 @@ export function Properties() {
       <SlideInPanel isOpen={selectedListing !== null} onClose={() => setSelectedListing(null)} title="Listing Details">
         {selectedListing && (
           <div className="space-y-6">
+            {(() => {
+              const enrichment = getEnrichmentMeta(selectedListing.locationIntelligenceStatus);
+              const EnrichmentIcon = enrichment.icon;
+
+              return (
+                <div className={`rounded-lg border px-4 py-3 ${enrichment.className}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <EnrichmentIcon className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold">{enrichment.label}</p>
+                        <p className="mt-1 text-xs opacity-90">{enrichment.description}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleRequeueEnrichment}
+                      disabled={isRequeueingEnrichment}
+                      className="inline-flex items-center gap-2 rounded-lg border border-current/20 bg-white/70 px-3 py-2 text-xs font-medium transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${isRequeueingEnrichment ? 'animate-spin' : ''}`} />
+                      {isRequeueingEnrichment ? 'Requeueing...' : 'Requeue'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
             <div>
               <h2 className="text-lg font-semibold text-[#0D1117] mb-1">{selectedListing.title || 'Untitled'}</h2>
               <p className="text-sm text-[#6B7280]">{selectedListing.fullAddress || '—'}</p>
